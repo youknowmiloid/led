@@ -139,6 +139,7 @@ const SCHREIB  = "0000fff3-0000-1000-8000-00805f9b34fb";
 const KORR     = { r: 1.0, g: 0.63, b: 0.20 };   // Band leuchtet Blau ~5x, Gruen ~1,6x
 
 let geraet = null, merkmal = null, art = null, belegt = false, verworfen = 0;
+let wartend = null;   // zuletzt gewuenschter Zustand, der nicht rauskonnte
 
 const $ = (s) => document.querySelector(s);
 const logEl = $("#log");
@@ -193,11 +194,19 @@ function korrigiert(r, g, b) {
    writeValue() wartet auf die Quittung des Bandes (30-50 ms auf iOS). Kommt der
    naechste Befehl bevor die da ist, wirft iOS "GATT operation already in
    progress" und die Uebertragung reisst ab. Darum: immer nur EIN Schreibvorgang
-   gleichzeitig. Der uebersprungene Befehl wird NICHT nachgeholt — bei Licht
-   zaehlt der neueste Zustand, ein nachlaufender Stapel hinkt nur hinterher. */
-async function senden(daten) {
+   gleichzeitig. Ein nachlaufender Stapel hinkt nur hinterher.
+
+   ABER: bei Reglern und Farbwaehler zaehlt der ENDwert. Wird ausgerechnet der
+   verworfen, zeigt die Oberflaeche 100 % und das Band steht auf 80 %. Darum
+   merkt sich `wartend` den juengsten Wunsch und reicht ihn genau einmal nach,
+   sobald der laufende Schreibvorgang fertig ist. Bei der Messung ist das falsch
+   — dort ist das Ueberspringen die ehrliche Antwort, also nachreichen=false. */
+async function senden(daten, nachreichen) {
   if (!merkmal || !art) { log("nicht verbunden"); return null; }
-  if (belegt) { verworfen++; return null; }
+  if (belegt) {
+    if (nachreichen) wartend = daten; else verworfen++;
+    return null;
+  }
   belegt = true;
   const t0 = performance.now();
   try {
@@ -207,6 +216,7 @@ async function senden(daten) {
     return null;
   } finally {
     belegt = false;
+    if (wartend) { const n = wartend; wartend = null; senden(n, true); }
   }
   return performance.now() - t0;
 }
@@ -244,14 +254,14 @@ $("#verbinden").onclick = async () => {
 };
 
 document.querySelectorAll("[data-an]").forEach(b => b.onclick = async () => {
-  const ms = await senden(cmdAn(b.dataset.an === "1"));
+  const ms = await senden(cmdAn(b.dataset.an === "1"), true);
   if (ms !== null) log((b.dataset.an === "1" ? "An" : "Aus") + " — " + ms.toFixed(0) + " ms");
 });
 
 document.querySelectorAll("[data-farbe]").forEach(b => b.onclick = async () => {
   const [r, g, bl] = b.dataset.farbe.split(",").map(Number);
   const k = korrigiert(r, g, bl);
-  const ms = await senden(cmdFarbe(...k));
+  const ms = await senden(cmdFarbe(...k), true);
   if (ms !== null) log("Farbe " + k.join(",") + " — " + ms.toFixed(1) + " ms");
 });
 
@@ -260,21 +270,21 @@ $("#farbe").oninput = async (e) => {
   const k = korrigiert(parseInt(v.substr(1,2),16),
                        parseInt(v.substr(3,2),16),
                        parseInt(v.substr(5,2),16));
-  await senden(cmdFarbe(...k));
+  await senden(cmdFarbe(...k), true);
 };
 
 $("#hell").oninput = (e) => { $("#hellWert").textContent = e.target.value; };
 $("#hell").onchange = async (e) => {
-  const ms = await senden(cmdHell(Number(e.target.value)));
+  const ms = await senden(cmdHell(Number(e.target.value)), true);
   if (ms !== null) log("Helligkeit " + e.target.value + " % — " + ms.toFixed(0) + " ms");
 };
 
 $("#tempo").oninput = (e) => { $("#tempoWert").textContent = e.target.value; };
-$("#tempo").onchange = async (e) => { await senden(cmdTempo(Number(e.target.value))); };
+$("#tempo").onchange = async (e) => { await senden(cmdTempo(Number(e.target.value)), true); };
 
 document.querySelectorAll("[data-modus]").forEach(b => b.onclick = async () => {
   const m = parseInt(b.dataset.modus, 16);
-  const ms = await senden(cmdModus(m));
+  const ms = await senden(cmdModus(m), true);
   if (ms !== null) log("Modus 0x" + m.toString(16) + " — " + ms.toFixed(0) + " ms");
 });
 
@@ -283,6 +293,7 @@ document.querySelectorAll("[data-mess]").forEach(b => b.onclick = async () => {
   const abstand = Number(b.dataset.mess);
   log("--- Messung " + abstand + " ms Abstand, 20 Befehle ---");
   verworfen = 0;
+  wartend = null;   // kein alter Reglerwert darf in die Messung platzen
   const dauern = [];
   const start = performance.now();
   for (let i = 0; i < 20; i++) {
@@ -290,7 +301,7 @@ document.querySelectorAll("[data-mess]").forEach(b => b.onclick = async () => {
     const warte = soll - performance.now();
     if (warte > 0) await new Promise(r => setTimeout(r, warte));
     const k = (i % 2 === 0) ? korrigiert(255,255,255) : [0,0,0];
-    const ms = await senden(cmdFarbe(...k));
+    const ms = await senden(cmdFarbe(...k), false);
     if (ms !== null) dauern.push(ms);
   }
   const gesamt = performance.now() - start;
@@ -318,6 +329,19 @@ $("#quittung").onclick = async () => {
   p(!!navigator.bluetooth, "Web Bluetooth — sonst laeuft die Seite nicht in Bluefy");
   p("serviceWorker" in navigator, "Offline-Speicher moeglich (Service Worker)");
   $("#selbsttest").textContent = zeilen.join("\n");
+
+  // Ohne Web Bluetooth steuert die Seite gar nichts. Das gehoert gross nach
+  // oben, nicht klein in eine Zeile. Haeufigster Grund: vom Homescreen
+  // gestartet — dann laeuft sie in Safaris Motor, und der kann kein Bluetooth.
+  if (!navigator.bluetooth) {
+    const k = document.getElementById("notfall");
+    k.style.display = "block";
+    k.textContent = "Diese Seite kann hier nichts steuern: Web Bluetooth fehlt.\n\n"
+      + (navigator.standalone
+          ? "Du hast sie vom Homescreen gestartet. Das laeuft in Safaris Motor, "
+            + "und der kann kein Bluetooth. Oeffne sie stattdessen in Bluefy."
+          : "Oeffne sie in der App Bluefy. Safari kann kein Web Bluetooth.");
+  }
 })();
 
 /* --- Offline: Seite speichert sich selbst, damit sie ohne Netz laeuft.
