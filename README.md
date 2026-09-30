@@ -2,6 +2,8 @@
 
 Steuerung fuer ELK-BLEDOM LED-Baender ueber Web Bluetooth, direkt vom iPhone.
 
+**Live: https://youknowmiloid.github.io/led/**
+
 - `index.html` — die Steuerung (Farben, Helligkeit, eingebaute Modi, Messung)
 - `sprosse0.html` — Test: haelt das Handy zwei Baender im Strobo-Takt?
 - `sw.js` — speichert die Seite auf dem Geraet, damit sie ohne Netz laeuft
