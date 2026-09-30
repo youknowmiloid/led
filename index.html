@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MILOID LED</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; background:#0a0a0a; color:#eee;
+         font:16px/1.4 -apple-system,system-ui,sans-serif;
+         padding:16px 16px calc(16px + env(safe-area-inset-bottom)); }
+  h1 { font-size:18px; letter-spacing:.12em; margin:0 0 4px; }
+  .status { font-size:13px; color:#888; margin-bottom:16px; }
+  .status.an { color:#3c3; }
+  .status.fehler { color:#e44; }
+  button { width:100%; padding:16px; margin:6px 0; font-size:16px;
+           background:#1c1c1c; color:#eee; border:1px solid #333;
+           border-radius:10px; -webkit-tap-highlight-color:transparent; }
+  button:active { background:#2a2a2a; }
+  button.haupt { background:#e8342a; border-color:#e8342a; font-weight:600; }
+  button.klein { padding:10px; font-size:13px; }
+  .reihe { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .reihe4 { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .reihe button, .reihe4 button { margin:0; }
+  fieldset { border:1px solid #222; border-radius:10px; margin:16px 0; padding:12px; }
+  legend { font-size:12px; color:#777; letter-spacing:.1em; text-transform:uppercase; }
+  input[type=range] { width:100%; }
+  input[type=color] { width:100%; height:48px; background:none; border:1px solid #333;
+                      border-radius:10px; }
+  pre { background:#111; border:1px solid #222; border-radius:8px; padding:10px;
+        font-size:12px; max-height:220px; overflow:auto; white-space:pre-wrap; }
+  #notfall { display:none; background:#3a0e0c; border:1px solid #e8342a; color:#ffdcd9;
+             border-radius:10px; padding:10px; font-size:13px; margin-bottom:12px;
+             white-space:pre-wrap; }
+  #selbsttest { font-size:12px; color:#8a8a8a; white-space:pre-wrap; }
+  a { color:#e8342a; }
+</style>
+</head>
+<body>
+
+<div id="notfall"></div>
+
+<script>
+/* Faengt Fehler, die passieren BEVOR das Hauptskript laeuft. Ohne das bleibt
+   die Seite bei einem Syntaxfehler einfach stumm und niemand weiss warum. */
+(function () {
+  function zeigen(t) {
+    var k = document.getElementById("notfall");
+    if (!k) return;
+    k.style.display = "block";
+    k.textContent = (k.textContent ? k.textContent + "\n" : "") + t;
+  }
+  window.addEventListener("error", function (e) {
+    zeigen("FEHLER: " + (e.message || e.type) +
+           (e.filename ? "\n" + e.filename + ":" + e.lineno : ""));
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    var r = e.reason;
+    zeigen("FEHLER (unbehandelt): " + ((r && (r.message || r.name)) || String(r)));
+  });
+})();
+</script>
+
+<h1>MILOID LED</h1>
+<div class="status" id="status">nicht verbunden</div>
+
+<button class="haupt" id="verbinden">Band verbinden</button>
+
+<fieldset>
+  <legend>Grundfunktionen</legend>
+  <div class="reihe">
+    <button data-an="1">An</button>
+    <button data-an="0">Aus</button>
+  </div>
+  <label style="font-size:13px;color:#888">Helligkeit <span id="hellWert">100</span> %</label>
+  <input type="range" id="hell" min="1" max="100" value="100">
+  <input type="color" id="farbe" value="#ff0000">
+  <div class="reihe4">
+    <button data-farbe="255,0,0">Rot</button>
+    <button data-farbe="255,160,50">Weiss</button>
+    <button data-farbe="150,0,51">Lila</button>
+    <button data-farbe="0,255,0">Gruen</button>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Eingebaute Modi (Uhr des Controllers)</legend>
+  <div class="reihe4">
+    <button data-modus="0x95">7-Farb-Strobo</button>
+    <button data-modus="0x9C">Strobo weiss</button>
+    <button data-modus="0x96">Strobo rot</button>
+    <button data-modus="0x89">Verlauf weich</button>
+  </div>
+  <label style="font-size:13px;color:#888">Tempo <span id="tempoWert">100</span></label>
+  <input type="range" id="tempo" min="1" max="100" value="100">
+</fieldset>
+
+<fieldset>
+  <legend>Messung — das ist der eigentliche Test</legend>
+  <p style="font-size:13px;color:#888;margin:4px 0 10px">
+    Sendet 20 Farbbefehle mit festem Abstand und misst, wie lange das Schreiben
+    wirklich dauert. Am PC lag die Grenze bei 145 ms Abstand.
+    Zwei Baender gleichzeitig testet <a href="sprosse0.html">Sprosse 0</a>.
+  </p>
+  <div class="reihe4">
+    <button data-mess="60">60 ms</button>
+    <button data-mess="100">100 ms</button>
+    <button data-mess="145">145 ms</button>
+    <button data-mess="200">200 ms</button>
+  </div>
+  <button id="quittung">Mit Quittung gegen ohne (je 5 Modus-Befehle)</button>
+</fieldset>
+
+<fieldset>
+  <legend>Laeuft das hier ueberhaupt?</legend>
+  <div id="selbsttest">wird geprueft…</div>
+  <button class="klein" id="kopieren">Log kopieren (zum Weiterschicken)</button>
+</fieldset>
+
+<pre id="log">Diese Seite in Bluefy oeffnen, nicht in Safari. Dann "Band verbinden".
+Die Auswahlliste zeigt alle Bluetooth-Geraete — das Band heisst ELK-BLEDOM.
+</pre>
+
+<script>
+"use strict";
+
+/* --- Bluefy-feste Grundlagen ------------------------------------------------
+   Vier Punkte, an denen Bluefy (iPhone) anders ist als Chrome. Jeder einzelne
+   sorgt dafuer, dass gar nichts passiert. Belegt am 30.09.2026, Details in
+   04 Ressourcen/Tech & Workflow/Web-Bluetooth auf dem iPhone (Bluefy).md      */
+
+// 1. UUID IMMER als volle 128-Bit-Zeichenkette. Steht eine Zahl (0xfff0) oder
+//    ein Kurzname drin, verweigert Bluefy die GANZE requestDevice-Anfrage.
+const DIENST   = "0000fff0-0000-1000-8000-00805f9b34fb";
+const SCHREIB  = "0000fff3-0000-1000-8000-00805f9b34fb";
+const KORR     = { r: 1.0, g: 0.63, b: 0.20 };   // Band leuchtet Blau ~5x, Gruen ~1,6x
+
+let geraet = null, merkmal = null, art = null, belegt = false, verworfen = 0;
+
+const $ = (s) => document.querySelector(s);
+const logEl = $("#log");
+function log(t) {
+  logEl.textContent = new Date().toLocaleTimeString() + "  " + t + "\n" + logEl.textContent;
+}
+function status(t, klasse) {
+  const el = $("#status");
+  el.textContent = t;
+  el.className = "status" + (klasse ? " " + klasse : "");
+}
+// Bluefy wirft teils leere Objekte. e.message allein reicht nicht.
+function fehlertext(e) {
+  if (e === undefined || e === null) return "unbekannter Fehler (leeres Objekt)";
+  return e.message || e.name || String(e);
+}
+
+// 3. writeValueWithoutResponse fehlt in aelteren Bluefy-Fassungen. Einmal beim
+//    Verbinden bestimmen, was dieses Merkmal wirklich kann — properties pruefen,
+//    nicht nur ob die Methode am Objekt haengt.
+function schreibweise(m) {
+  if (!m) return null;
+  const p = m.properties || {};
+  if (p.writeWithoutResponse && typeof m.writeValueWithoutResponse === "function")
+    return "writeValueWithoutResponse";
+  if (p.write && typeof m.writeValueWithResponse === "function")
+    return "writeValueWithResponse";
+  if (typeof m.writeValue === "function") return "writeValue";
+  if (typeof m.writeValueWithoutResponse === "function") return "writeValueWithoutResponse";
+  if (typeof m.writeValueWithResponse === "function") return "writeValueWithResponse";
+  return null;
+}
+
+/* --- Befehlsrahmen: 9 Byte, 7E ... EF --- */
+function rahmen(...b) {
+  const a = new Uint8Array(9);
+  a[0] = 0x7E; a[8] = 0xEF;
+  for (let i = 0; i < b.length && i < 7; i++) a[i + 1] = b[i];
+  return a;
+}
+const cmdAn      = (an)      => rahmen(0x00, 0x04, an ? 0x01 : 0x00, 0, 0, 0, 0);
+const cmdFarbe   = (r, g, b) => rahmen(0x00, 0x05, 0x03, r, g, b, 0x00);
+const cmdHell    = (p)       => rahmen(0x00, 0x01, p, 0, 0, 0, 0);
+const cmdModus   = (m)       => rahmen(0x00, 0x03, m, 0x03, 0, 0, 0);
+const cmdTempo   = (t)       => rahmen(0x00, 0x02, t, 0, 0, 0, 0);
+
+function korrigiert(r, g, b) {
+  return [Math.round(r * KORR.r), Math.round(g * KORR.g), Math.round(b * KORR.b)];
+}
+
+/* --- Senden ------------------------------------------------------------------
+   writeValue() wartet auf die Quittung des Bandes (30-50 ms auf iOS). Kommt der
+   naechste Befehl bevor die da ist, wirft iOS "GATT operation already in
+   progress" und die Uebertragung reisst ab. Darum: immer nur EIN Schreibvorgang
+   gleichzeitig. Der uebersprungene Befehl wird NICHT nachgeholt — bei Licht
+   zaehlt der neueste Zustand, ein nachlaufender Stapel hinkt nur hinterher. */
+async function senden(daten) {
+  if (!merkmal || !art) { log("nicht verbunden"); return null; }
+  if (belegt) { verworfen++; return null; }
+  belegt = true;
+  const t0 = performance.now();
+  try {
+    await merkmal[art](daten);
+  } catch (e) {
+    log("FEHLER beim Schreiben: " + fehlertext(e));
+    return null;
+  } finally {
+    belegt = false;
+  }
+  return performance.now() - t0;
+}
+
+$("#verbinden").onclick = async () => {
+  if (!navigator.bluetooth) {
+    status("Web Bluetooth fehlt — Seite in Bluefy oeffnen, nicht in Safari", "fehler");
+    return;
+  }
+  try {
+    status("suche…");
+    // 2. KEIN namePrefix-Filter: damit bleibt die Geraeteliste in Bluefy LEER.
+    //    acceptAllDevices zeigt alles, dafuer zuverlaessig.
+    geraet = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [DIENST]
+    });
+    geraet.addEventListener("gattserverdisconnected", () => {
+      merkmal = null; art = null; belegt = false;
+      status("Verbindung weg", "fehler");
+      log("Verbindung zum Band verloren.");
+    });
+    const server  = await geraet.gatt.connect();
+    const dienst  = await server.getPrimaryService(DIENST);
+    merkmal       = await dienst.getCharacteristic(SCHREIB);
+    art           = schreibweise(merkmal);
+    if (!art) throw new Error("Dieses Merkmal kann gar nicht beschrieben werden.");
+    // 4. device.id fehlt in aelteren Bluefy-Fassungen — nie blind benutzen.
+    status("verbunden: " + (geraet.name || "unbenannt"), "an");
+    log("verbunden, Merkmal FFF3 da. Sendet per " + art + "().");
+  } catch (e) {
+    status("Fehler: " + fehlertext(e), "fehler");
+    log("Verbindung fehlgeschlagen: " + fehlertext(e));
+  }
+};
+
+document.querySelectorAll("[data-an]").forEach(b => b.onclick = async () => {
+  const ms = await senden(cmdAn(b.dataset.an === "1"));
+  if (ms !== null) log((b.dataset.an === "1" ? "An" : "Aus") + " — " + ms.toFixed(0) + " ms");
+});
+
+document.querySelectorAll("[data-farbe]").forEach(b => b.onclick = async () => {
+  const [r, g, bl] = b.dataset.farbe.split(",").map(Number);
+  const k = korrigiert(r, g, bl);
+  const ms = await senden(cmdFarbe(...k));
+  if (ms !== null) log("Farbe " + k.join(",") + " — " + ms.toFixed(1) + " ms");
+});
+
+$("#farbe").oninput = async (e) => {
+  const v = e.target.value;
+  const k = korrigiert(parseInt(v.substr(1,2),16),
+                       parseInt(v.substr(3,2),16),
+                       parseInt(v.substr(5,2),16));
+  await senden(cmdFarbe(...k));
+};
+
+$("#hell").oninput = (e) => { $("#hellWert").textContent = e.target.value; };
+$("#hell").onchange = async (e) => {
+  const ms = await senden(cmdHell(Number(e.target.value)));
+  if (ms !== null) log("Helligkeit " + e.target.value + " % — " + ms.toFixed(0) + " ms");
+};
+
+$("#tempo").oninput = (e) => { $("#tempoWert").textContent = e.target.value; };
+$("#tempo").onchange = async (e) => { await senden(cmdTempo(Number(e.target.value))); };
+
+document.querySelectorAll("[data-modus]").forEach(b => b.onclick = async () => {
+  const m = parseInt(b.dataset.modus, 16);
+  const ms = await senden(cmdModus(m));
+  if (ms !== null) log("Modus 0x" + m.toString(16) + " — " + ms.toFixed(0) + " ms");
+});
+
+/* --- Die eigentliche Messung --- */
+document.querySelectorAll("[data-mess]").forEach(b => b.onclick = async () => {
+  const abstand = Number(b.dataset.mess);
+  log("--- Messung " + abstand + " ms Abstand, 20 Befehle ---");
+  verworfen = 0;
+  const dauern = [];
+  const start = performance.now();
+  for (let i = 0; i < 20; i++) {
+    const soll = start + i * abstand;
+    const warte = soll - performance.now();
+    if (warte > 0) await new Promise(r => setTimeout(r, warte));
+    const k = (i % 2 === 0) ? korrigiert(255,255,255) : [0,0,0];
+    const ms = await senden(cmdFarbe(...k));
+    if (ms !== null) dauern.push(ms);
+  }
+  const gesamt = performance.now() - start;
+  if (!dauern.length) { log("Kein einziger Befehl ging raus."); return; }
+  const d = dauern.slice().sort((a,b) => a-b);
+  const med = d[Math.floor(d.length / 2)];
+  log("fertig in " + gesamt.toFixed(0) + " ms (Soll " + (19*abstand) + " ms)"
+      + " | Schreibdauer Median " + med.toFixed(1)
+      + " ms, max " + d[d.length-1].toFixed(1) + " ms"
+      + " | " + dauern.length + " von 20 raus"
+      + (verworfen ? ", " + verworfen + " uebersprungen (Band war noch belegt)" : ""));
+  log("Augenpruefung: kam jeder Blitz? Verschmolzene Blitze = Abstand zu klein.");
+});
+
+$("#quittung").onclick = async () => {
+  log("Diese Fassung sendet immer per " + (art || "—") + "(), die Schreibart"
+      + " bestimmt das Band. Ein Vergleich ist damit nicht mehr moeglich.");
+};
+
+/* --- Selbsttest: sagt beim Laden, ob ueberhaupt alles da ist --- */
+(function () {
+  const zeilen = [];
+  function p(ok, text) { zeilen.push((ok ? "OK    " : "FEHLT ") + text); }
+  p(window.isSecureContext, "sichere Verbindung (https) — ohne die gibt es kein Bluetooth");
+  p(!!navigator.bluetooth, "Web Bluetooth — sonst laeuft die Seite nicht in Bluefy");
+  p("serviceWorker" in navigator, "Offline-Speicher moeglich (Service Worker)");
+  $("#selbsttest").textContent = zeilen.join("\n");
+})();
+
+/* --- Offline: Seite speichert sich selbst, damit sie ohne Netz laeuft.
+       Ob Bluefy das erlaubt, steht oben im Selbsttest. Schlaegt es fehl,
+       aendert sich sonst nichts. --- */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").then(
+    function () { log("Offline-Speicher aktiv — Seite laeuft jetzt auch ohne Netz."); },
+    function (e) { log("Offline-Speicher nicht moeglich: " + fehlertext(e)); }
+  );
+}
+
+$("#kopieren").onclick = async () => {
+  const t = "MILOID LED — " + new Date().toISOString() + "\n"
+          + navigator.userAgent + "\n\n"
+          + $("#selbsttest").textContent + "\n\n"
+          + logEl.textContent;
+  try {
+    await navigator.clipboard.writeText(t);
+    log("Log kopiert. Jetzt in eine Nachricht einfuegen.");
+  } catch (e) {
+    log("Kopieren ging nicht: " + fehlertext(e) + " — Log von Hand markieren.");
+  }
+};
+</script>
+</body>
+</html>

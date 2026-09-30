@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sprosse 0 — trägt das iPhone den Plan?</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; background:#0a0a0a; color:#eee;
+         font:16px/1.45 -apple-system,system-ui,sans-serif;
+         padding:16px 16px calc(24px + env(safe-area-inset-bottom)); }
+  h1 { font-size:17px; letter-spacing:.1em; margin:0 0 2px; }
+  .unter { font-size:13px; color:#777; margin:0 0 16px; }
+  button { width:100%; padding:15px; margin:6px 0; font-size:16px;
+           background:#1c1c1c; color:#eee; border:1px solid #333;
+           border-radius:10px; -webkit-tap-highlight-color:transparent; }
+  button:active { background:#2a2a2a; }
+  button.haupt { background:#e8342a; border-color:#e8342a; font-weight:600; }
+  button:disabled { opacity:.4; }
+  .reihe { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .reihe4 { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .reihe button, .reihe4 button { margin:0; }
+  fieldset { border:1px solid #222; border-radius:10px; margin:14px 0; padding:12px; }
+  legend { font-size:11px; color:#777; letter-spacing:.12em; text-transform:uppercase; }
+  .lampe { display:flex; align-items:center; gap:8px; font-size:14px; margin:4px 0; }
+  .punkt { width:10px; height:10px; border-radius:50%; background:#555; flex:none; }
+  .punkt.an { background:#3c3; }
+  .punkt.fehler { background:#e44; }
+  .pegel { height:8px; background:#1c1c1c; border-radius:4px; overflow:hidden; margin:8px 0 2px; }
+  .pegel > i { display:block; height:100%; width:0; background:#3c3; transition:width .05s; }
+  .hinweis { font-size:13px; color:#888; margin:4px 0 10px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; }
+  th,td { text-align:left; padding:5px 4px; border-bottom:1px solid #1e1e1e; }
+  th { color:#777; font-weight:400; }
+  .urteil { font-size:15px; font-weight:600; padding:12px; border-radius:10px;
+            margin:12px 0 0; line-height:1.4; }
+  .urteil.ja   { background:#0f2a12; border:1px solid #2a6e30; color:#8ee89a; }
+  .urteil.nein { background:#2c1010; border:1px solid #7a2a24; color:#f0908a; }
+  .urteil.grau { background:#151515; border:1px solid #2a2a2a; color:#aaa; }
+  pre { background:#111; border:1px solid #222; border-radius:8px; padding:10px;
+        font-size:11.5px; max-height:200px; overflow:auto; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+
+<!-- Muss als ERSTES laufen, vor jedem anderen Script. Sonst stirbt ein Fehler
+     beim Laden still und die Seite wirkt einfach "kaputt", ohne zu sagen warum. -->
+<script>
+window.__probleme = [];
+(function () {
+  function zeigen(text) {
+    window.__probleme.push(text);
+    var k = document.getElementById("notfall");
+    if (!k) {
+      k = document.createElement("pre");
+      k.id = "notfall";
+      k.style.cssText = "background:#5a0000;color:#fff;padding:12px;margin:8px 0;"
+        + "border:2px solid #ff4444;white-space:pre-wrap;font-size:13px;line-height:1.4";
+      if (document.body) document.body.insertBefore(k, document.body.firstChild);
+      else return;
+      k.textContent = "FEHLER AUF DIESER SEITE — bitte abfotografieren:\n";
+    }
+    k.textContent += "\n• " + text;
+  }
+  window.__zeigeProblem = zeigen;
+  window.onerror = function (m, quelle, zeile, spalte, e) {
+    zeigen(m + "   [" + (quelle || "?").split("/").pop() + ":" + zeile + "]");
+  };
+  window.addEventListener("unhandledrejection", function (ev) {
+    var r = ev.reason;
+    zeigen("unbehandelt: " + (r && (r.message || r.name) || String(r)));
+  });
+  window.addEventListener("error", function (ev) {
+    if (ev.target && ev.target.tagName === "SCRIPT") {
+      zeigen("Script konnte nicht geladen werden: " + ev.target.src);
+    }
+  }, true);
+})();
+</script>
+
+<h1>SPROSSE 0</h1>
+<p class="unter">Vor jeder Zeile App-Code: schafft das iPhone <b>zwei</b> Bänder
+im Strobo-Takt, <b>während</b> das Mikrofon läuft? Wenn nein, trägt der ganze
+Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</p>
+
+<fieldset>
+  <legend>0 · Läuft das hier überhaupt?</legend>
+  <pre id="selbsttest">wird geprüft …</pre>
+</fieldset>
+
+<fieldset>
+  <legend>1 · Bänder</legend>
+  <div class="lampe"><span class="punkt" id="p1"></span><span id="t1">Band 1 — nicht verbunden</span></div>
+  <div class="lampe"><span class="punkt" id="p2"></span><span id="t2">Band 2 — nicht verbunden</span></div>
+  <div class="reihe">
+    <button class="haupt" id="verb1">Band 1 verbinden</button>
+    <button class="haupt" id="verb2">Band 2 verbinden</button>
+  </div>
+  <p class="hinweis">Im Dialog stehen <b>alle</b> Bluetooth-Geräte in Reichweite,
+  nicht nur die Bänder — das ist Absicht, weil Bluefy mit einem Namensfilter
+  eine leere Liste zeigt. Die beiden Bänder heißen <b>ELK-BLEDOM</b>. Zweimal
+  denselben Eintrag zu erwischen merkt die Seite nicht, das zeigt erst die
+  Sichtprobe: es müssen <b>beide</b> rot werden.</p>
+  <button id="anAus">Beide an, auf Rot — Sichtprobe</button>
+</fieldset>
+
+<fieldset>
+  <legend>2 · Mikrofon</legend>
+  <div class="lampe"><span class="punkt" id="pm"></span><span id="tm">Mikrofon aus</span></div>
+  <div class="pegel"><i id="pegelBalken"></i></div>
+  <div class="hinweis" id="pegelText">—</div>
+  <button id="mikro">Mikrofon einschalten</button>
+  <p class="hinweis">Läuft der Balken beim Reden mit, gibt Bluefy das Mikrofon
+  frei. Bleibt er tot, fällt die Musikanalyse auf dem Handy weg.</p>
+</fieldset>
+
+<fieldset>
+  <legend>3 · Die Messung</legend>
+  <p class="hinweis">Beide Bänder blinken gegenphasig, Band&nbsp;2 um
+  <b>20&nbsp;ms</b> versetzt — dasselbe Raster wie am PC
+  (<code>PAAR_VERSATZ</code>). Gemessen wird nicht, ob ein Befehl rausgeht,
+  sondern ob die Schleife <b>den Takt hält</b>.</p>
+  <div class="reihe4">
+    <button data-takt="100">100 ms</button>
+    <button data-takt="145">145 ms</button>
+    <button data-takt="165">165 ms</button>
+    <button data-takt="200">200 ms</button>
+  </div>
+  <div class="hinweis">Dauer:
+    <label><input type="radio" name="dauer" value="20" checked> 20 s</label>
+    &nbsp;<label><input type="radio" name="dauer" value="60"> 60 s</label>
+  </div>
+  <div class="urteil grau" id="urteil">Noch nichts gemessen.</div>
+</fieldset>
+
+<fieldset>
+  <legend>4 · Alle Läufe</legend>
+  <table id="tabelle">
+    <tr><th>Takt</th><th>Mik</th><th>Ticks</th><th>Versatz p95</th><th>Schreiben p95</th><th>Fehler</th></tr>
+  </table>
+  <button id="kopieren">Ergebnis kopieren</button>
+  <p class="hinweis">Oder einfach abfotografieren und schicken.</p>
+</fieldset>
+
+<fieldset>
+  <legend>5 · Sperrtest — was passiert, wenn du das Handy weglegst</legend>
+  <p class="hinweis">Apple hält JavaScript an, sobald die App in den Hintergrund
+  geht. Dieser Test misst, <b>was das konkret kostet</b>: wie viele Befehle in
+  der Sperrzeit durchkommen (Erwartung: null), ob die Bluetooth-Verbindung das
+  überlebt, und wie lange es nach dem Entsperren dauert, bis es weiterläuft.</p>
+  <div class="lampe"><span class="punkt" id="pw"></span><span id="tw">Bildschirm-Sperre aktiv</span></div>
+  <button id="wach">Bildschirm wachhalten (Wake Lock)</button>
+  <div class="hinweis">Rückfall beim Sperren:
+    <select id="rueckfall" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
+      <option value="0x95">Band läuft im 7-Farb-Strobo weiter</option>
+      <option value="0x9C">Band läuft im Weiß-Strobo weiter</option>
+      <option value="0x89">Band läuft im weichen Verlauf weiter</option>
+      <option value="">nichts senden (Band bleibt wie es ist)</option>
+    </select>
+  </div>
+  <button id="sperrtest">Sperrtest starten (90 s)</button>
+  <div class="urteil grau" id="sperrUrteil">Noch nicht getestet.</div>
+</fieldset>
+
+<pre id="log">Bereit. Reihenfolge: beide Bänder verbinden → Sichtprobe → 165 ms ohne Mikrofon → Mikrofon an → 165 ms nochmal → Sperrtest.
+</pre>
+<script src="dauerhaft.js"></script>
+
+<script>
+"use strict";
+
+/* Werte aus dem PC-Projekt, nicht geraten:
+   led.py  MIN_GAP      = 0.145 s   je Band ein Befehl, darunter verschluckt es
+   led.py  PAAR_VERSATZ = 0.020 s   Band 2 geht 20 ms nach Band 1 raus
+   party.py SICHER      = 0.020 s   Sicherheitsabstand obendrauf
+   Alle drei gelten fuer den Windows-Bluetooth-Stack. Ob sie auf dem iPhone
+   auch gelten, ist genau die Frage dieser Seite. */
+// Bluefy (iOS) verweigert die GANZE requestDevice-Anfrage, sobald eine UUID als
+// Zahl (0xfff0) oder als Kurzname darin steht — "requestDevice request payload
+// could not be parsed". Chrome normalisiert das still, deshalb faellt es nur auf
+// dem iPhone auf. Darum ueberall volle 128 Bit als Zeichenkette.
+const DIENST  = "0000fff0-0000-1000-8000-00805f9b34fb";
+const SCHREIB = "0000fff3-0000-1000-8000-00805f9b34fb";
+const KORR    = { r: 1.0, g: 0.63, b: 0.20 };
+const VERSATZ = 20;     // ms zwischen Band 1 und Band 2
+const FENSTER = 20;     // ms: so weit darf ein Tick spaet sein, dann ist er verpasst
+
+const baender = [null, null];   // {geraet, merkmal}
+const laeufe = [];
+let mikroAn = false, analyse = null, mikroDaten = null, mikroTicks = 0;
+let laeuft = false;
+let abbruch = null;      // Grund, warum eine laufende Messung aufhoeren muss
+
+const $ = (s) => document.querySelector(s);
+const logEl = $("#log");
+function log(t) {
+  logEl.textContent = new Date().toLocaleTimeString() + "  " + t + "\n" + logEl.textContent;
+}
+function lampe(id, txt, klasse) {
+  $("#p" + id).className = "punkt" + (klasse ? " " + klasse : "");
+  $("#t" + id).textContent = txt;
+}
+
+/* --- Rueckmeldung an den PC -----------------------------------------------
+   Sonst sitzt am PC jemand blind: die Seite laeuft auf dem Handy, der Fehler
+   steht dort auf dem Bildschirm, und hier weiss niemand davon. Laeuft die
+   Seite woanders (Netlify o.ae.), schlaegt das still fehl und stoert nicht. */
+function melde(was, text) {
+  try {
+    fetch("melde", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ was: was, text: String(text) })
+    }).catch(function () {});
+  } catch (e) {}
+}
+let zuletztGemeldet = "";
+setInterval(function () {
+  // Waehrend einer laufenden Messung nichts senden: ein HTTP-Aufruf in der
+  // Ereignisschleife wuerde genau den Takt stoeren, der hier gemessen wird.
+  if (laeuft) return;
+  const jetzt = logEl.textContent;
+  if (jetzt !== zuletztGemeldet) {
+    zuletztGemeldet = jetzt;
+    melde("Log", jetzt.split("\n").slice(0, 40).join("\n"));
+  }
+}, 5000);
+
+// --- Befehlsrahmen: 9 Byte, 7E ... EF ---
+function rahmen(...b) {
+  const a = new Uint8Array(9);
+  a[0] = 0x7E; a[8] = 0xEF;
+  for (let i = 0; i < b.length && i < 7; i++) a[i + 1] = b[i];
+  return a;
+}
+const cmdAn    = (an)      => rahmen(0x00, 0x04, an ? 0x01 : 0x00, 0, 0, 0, 0);
+const cmdFarbe = (r, g, b) => rahmen(0x00, 0x05, 0x03, r, g, b, 0x00);
+const cmdHell  = (p)       => rahmen(0x00, 0x01, p, 0, 0, 0, 0);
+// Eingebauter Controller-Modus. Der laeuft in der HARDWARE weiter, auch ohne
+// Handy und ohne Verbindung - der einzige Weg, dass bei gesperrtem Handy noch
+// etwas passiert.
+const cmdModus = (m)       => rahmen(0x00, 0x03, m, 0x03, 0, 0, 0);
+const korr = (r, g, b) => [Math.round(r*KORR.r), Math.round(g*KORR.g), Math.round(b*KORR.b)];
+
+// Bluefy (WKWebView) liefert BluetoothDevice.id NICHT. Jedes blinde
+// geraet.id.slice() wirft dort einen TypeError - und zwar erst NACH dem
+// erfolgreichen Verbinden, so dass die Lampe faelschlich auf Fehler springt.
+// Darum ueberall ueber diese zwei Helfer gehen.
+function fehlertext(e) {
+  if (e === undefined || e === null) return "unbekannter Fehler (leeres Objekt)";
+  return e.message || e.name || String(e);
+}
+function kennung(g) {
+  return (g && typeof g.id === "string" && g.id) ? g.id : "";
+}
+// Bluefy kennt writeValueWithoutResponse und writeValueWithResponse NICHT —
+// dort gibt es nur das alte writeValue. Chrome kennt alle drei. Einmal beim
+// Verbinden festlegen, welche vorhanden ist, statt bei jedem Tick zu pruefen.
+// Es reicht NICHT, nur zu pruefen, ob die Methode am JS-Objekt existiert: das
+// Band muss die Betriebsart auch erlauben. Steht in properties kein
+// writeWithoutResponse, scheitert der Versuch auf Betriebssystem-Ebene, obwohl
+// die Methode da ist.
+function schreibweise(m) {
+  if (!m) return null;
+  const p = m.properties || {};
+  if (p.writeWithoutResponse && typeof m.writeValueWithoutResponse === "function")
+    return "writeValueWithoutResponse";
+  if (p.write && typeof m.writeValueWithResponse === "function")
+    return "writeValueWithResponse";
+  if (typeof m.writeValue === "function") return "writeValue";
+  if (typeof m.writeValueWithoutResponse === "function") return "writeValueWithoutResponse";
+  if (typeof m.writeValueWithResponse === "function") return "writeValueWithResponse";
+  return null;
+}
+
+/* Ein Schreibvorgang je Band, niemals zwei gleichzeitig.
+   writeValue() wartet auf die Quittung des Bandes — ein BLE-Hin-und-Rueck
+   dauert auf iOS 30–50 ms. Kommt der naechste Takt, bevor die Quittung da ist,
+   wirft iOS "GATT operation already in progress" und die Uebertragung reisst
+   ab. Der uebersprungene Befehl wird NICHT nachgeholt: beim Strobo zaehlt nur
+   der neueste Zustand, und ein nachlaufender Stapel wuerde das Licht dem Takt
+   hinterherhinken lassen. Ein Ueberspringen ist zugleich die ehrliche Antwort
+   auf die Frage dieser Seite — dann haelt das Geraet den Takt eben nicht. */
+function sende(b, daten) {
+  if (!b || !b.merkmal || !b.art) return Promise.reject(new Error("Band nicht bereit"));
+  if (b.belegt) {
+    b.verworfen = (b.verworfen || 0) + 1;
+    return Promise.reject(new Error("übersprungen — Band sendet noch"));
+  }
+  b.belegt = true;
+  return Promise.resolve()
+    .then(function () { return b.merkmal[b.art](daten); })
+    .then(function (r) { b.belegt = false; return r; },
+          function (e) { b.belegt = false; throw e; });
+}
+
+async function verbinden(nr) {
+  if (!navigator.bluetooth) {
+    log("Web Bluetooth fehlt — die Seite muss in Bluefy laufen, nicht in Safari.");
+    lampe(nr, "Band " + nr + " — Bluefy nötig", "fehler");
+    return;
+  }
+  try {
+    lampe(nr, "Band " + nr + " — suche…");
+    // KEIN namePrefix-Filter: Bluefy zeigt damit eine LEERE Geraeteliste
+    // (belegter Fehler, Chrome/Android ist davon nicht betroffen). Mit
+    // acceptAllDevices erscheinen alle BLE-Geraete in Reichweite — das Band
+    // heisst ELK-BLEDOM und wird von Hand angetippt.
+    const geraet = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true, optionalServices: [DIENST]
+    });
+    log("Band " + nr + " gewählt:  name=" + JSON.stringify(geraet.name) +
+        "   id=" + JSON.stringify(geraet.id));
+    const anderes = baender[nr === 1 ? 1 : 0];
+    const k = kennung(geraet);
+    const doppelt = anderes && (anderes.geraet === geraet ||
+                               (k && kennung(anderes.geraet) === k));
+    if (doppelt) {
+      lampe(nr, "Band " + nr + " — das ist dasselbe Gerät!", "fehler");
+      log("Zweimal dasselbe Band gewählt. Im Dialog den ANDEREN Eintrag nehmen.");
+      return;
+    }
+    if (anderes && !k) {
+      log("Hinweis: Bluefy gibt keine Geräte-ID her. Ob wirklich ZWEI " +
+          "verschiedene Bänder dranhängen, zeigt erst die Sichtprobe — " +
+          "es müssen beide rot werden.");
+    }
+    geraet.addEventListener("gattserverdisconnected", () => {
+      baender[nr-1] = null;
+      lampe(nr, "Band " + nr + " — Verbindung weg", "fehler");
+      log("Band " + nr + ": Verbindung abgerissen.");
+      // ELK-BLEDOM wirft bei hoher Befehlsrate gern die Verbindung weg. Laeuft
+      // gerade eine Messung, muss sie sofort aufhoeren — sonst misst sie ab hier
+      // nur noch Folgefehler und das Ergebnis ist wertlos.
+      if (laeuft) {
+        abbruch = "Band " + nr + " hat die Verbindung verloren";
+        log("Messung wird abgebrochen: " + abbruch);
+      }
+    });
+    const server = await geraet.gatt.connect();
+    const dienst = await server.getPrimaryService(DIENST);
+    const merkmal = await dienst.getCharacteristic(SCHREIB);
+    const art = schreibweise(merkmal);
+    if (!art) throw new Error("Dieses Merkmal kann gar nicht beschrieben werden.");
+    baender[nr-1] = { geraet, merkmal, art };
+    const wer = geraet.name || (k ? k.slice(0, 8) + "…" : "ohne Namen");
+    lampe(nr, "Band " + nr + " — verbunden (" + wer + ")", "an");
+    log("Band " + nr + " verbunden, sendet per " + art + "().");
+  } catch (e) {
+    lampe(nr, "Band " + nr + " — " + fehlertext(e), "fehler");
+    log("Band " + nr + ": " + fehlertext(e));
+  }
+}
+$("#verb1").onclick = () => verbinden(1);
+$("#verb2").onclick = () => verbinden(2);
+
+$("#anAus").onclick = async () => {
+  for (let i = 0; i < 2; i++) {
+    const b = baender[i];
+    if (!b) { log("Band " + (i+1) + " fehlt."); continue; }
+    try {
+      await sende(b, cmdAn(true));
+      await sende(b, cmdHell(100));
+      await sende(b, cmdFarbe(...korr(255, 0, 0)));
+    } catch (e) { log("Band " + (i+1) + ": " + fehlertext(e)); }
+  }
+  log("Sichtprobe: leuchten beide rot?");
+};
+
+// --- Mikrofon. Zweck: laeuft es ueberhaupt, und bremst es die Bandbefehle? ---
+$("#mikro").onclick = async () => {
+  if (mikroAn) {
+    mikroAn = false;
+    $("#mikro").textContent = "Mikrofon einschalten";
+    $("#pm").className = "punkt";
+    $("#tm").textContent = "Mikrofon aus";
+    log("Mikrofon aus.");
+    return;
+  }
+  try {
+    const strom = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    await ctx.resume();
+    analyse = ctx.createAnalyser();
+    analyse.fftSize = 1024;
+    ctx.createMediaStreamSource(strom).connect(analyse);
+    mikroDaten = new Float32Array(analyse.fftSize);
+    mikroAn = true;
+    $("#mikro").textContent = "Mikrofon ausschalten";
+    $("#pm").className = "punkt an";
+    $("#tm").textContent = "Mikrofon läuft — " + (ctx.sampleRate/1000).toFixed(1) + " kHz";
+    log("Mikrofon offen, " + ctx.sampleRate + " Hz. Bluefy gibt es frei.");
+    pegelSchleife();
+  } catch (e) {
+    $("#pm").className = "punkt fehler";
+    $("#tm").textContent = "Mikrofon verweigert: " + fehlertext(e);
+    log("MIKROFON GEHT NICHT: " + fehlertext(e) + " — dann bleibt die App eine Fernbedienung.");
+  }
+};
+
+function pegelSchleife() {
+  if (!mikroAn) { $("#pegelBalken").style.width = "0"; return; }
+  analyse.getFloatTimeDomainData(mikroDaten);
+  let summe = 0;
+  for (let i = 0; i < mikroDaten.length; i++) summe += mikroDaten[i] * mikroDaten[i];
+  const rms = Math.sqrt(summe / mikroDaten.length);
+  const db = 20 * Math.log10(rms + 1e-9);
+  mikroTicks++;
+  $("#pegelBalken").style.width = Math.max(0, Math.min(100, (db + 60) / 60 * 100)) + "%";
+  $("#pegelText").textContent = db.toFixed(1) + " dB   ·   " + mikroTicks + " Messungen";
+  requestAnimationFrame(pegelSchleife);
+}
+
+// --- Die Messung ---
+function p(werte, anteil) {
+  if (!werte.length) return 0;
+  const s = werte.slice().sort((a, b) => a - b);
+  return s[Math.min(s.length - 1, Math.floor(s.length * anteil))];
+}
+
+document.querySelectorAll("[data-takt]").forEach(b => b.onclick = async () => {
+  if (laeuft) { log("Läuft schon."); return; }
+  if (!baender[0] || !baender[1]) {
+    log("Es müssen BEIDE Bänder verbunden sein — sonst misst das nichts.");
+    return;
+  }
+  const takt = Number(b.dataset.takt);
+  const dauer = Number(document.querySelector("input[name=dauer]:checked").value) * 1000;
+  const ticks = Math.floor(dauer / takt);
+  laeuft = true;
+  document.querySelectorAll("button").forEach(x => x.disabled = true);
+  $("#urteil").className = "urteil grau";
+  $("#urteil").textContent = "misst … " + ticks + " Ticks à " + takt + " ms"
+                           + (mikroAn ? ", Mikrofon läuft mit" : ", ohne Mikrofon");
+  log("--- Messung: " + takt + " ms, " + ticks + " Ticks, Mikrofon "
+      + (mikroAn ? "AN" : "AUS") + " ---");
+
+  const schreib = [[], []], versatz = [];
+  let fehler = 0, verpasst = 0;
+  const mikroVorher = mikroTicks;
+  abbruch = null;
+  baender.forEach(b => { if (b) { b.verworfen = 0; b.belegt = false; } });
+  const t0 = performance.now();
+
+  let gelaufeneTicks = 0;
+  for (let i = 0; i < ticks; i++) {
+    if (abbruch) break;
+    gelaufeneTicks = i + 1;
+    const soll = t0 + i * takt;
+    const warte = soll - performance.now();
+    if (warte > 0) await new Promise(r => setTimeout(r, warte));
+    const ab = performance.now() - soll;     // wie spaet ist der Tick dran
+    versatz.push(ab);
+    if (ab > FENSTER) verpasst++;
+
+    // Band 1 sofort, Band 2 um PAAR_VERSATZ spaeter — wie in led.py.
+    // Gegenphasig, damit man mit blossem Auge sieht, ob beide sauber wechseln.
+    const hell = (i % 2 === 0);
+    const f1 = hell ? korr(255, 0, 0) : [0, 0, 0];
+    const f2 = hell ? [0, 0, 0] : korr(0, 0, 255);
+
+    const s1 = performance.now();
+    sende(baender[0], cmdFarbe(...f1))
+      .then(() => schreib[0].push(performance.now() - s1))
+      .catch(() => fehler++);
+
+    setTimeout(() => {
+      const s2 = performance.now();
+      sende(baender[1], cmdFarbe(...f2))
+        .then(() => schreib[1].push(performance.now() - s2))
+        .catch(() => fehler++);
+    }, VERSATZ);
+  }
+
+  await new Promise(r => setTimeout(r, 500));   // letzte Antworten einsammeln
+  const gelaufen = performance.now() - t0;
+  const mikroWaehrend = mikroTicks - mikroVorher;
+
+  // Beide Bänder aus.
+  for (const bd of baender) {
+    try { await sende(bd, cmdFarbe(0, 0, 0)); } catch (e) {}
+  }
+
+  const v95 = p(versatz, 0.95), vmax = Math.max(...versatz);
+  const w95 = Math.max(p(schreib[0], 0.95), p(schreib[1], 0.95));
+  const angekommen = schreib[0].length + schreib[1].length;
+  const erwartet = gelaufeneTicks * 2;
+  // Uebersprungene Befehle: das Band war noch am Senden, als der naechste Takt
+  // kam. Zaehlt gesondert, weil es etwas ANDERES bedeutet als ein Schreibfehler
+  // — nicht "kaputt", sondern "zu langsam fuer diesen Takt".
+  const verworfen = (baender[0] && baender[0].verworfen || 0)
+                  + (baender[1] && baender[1].verworfen || 0);
+
+  /* Urteil, nach vorher festgelegten Schwellen — nicht nach Gefuehl:
+     - hoechstens 5 % der Ticks duerfen mehr als 20 ms zu spaet kommen
+       (20 ms = PAAR_VERSATZ; wer spaeter dran ist, schiebt Band 2 in den
+        naechsten Tick und der Blitz zerfaellt)
+     - kein einziger Schreibfehler
+     - mindestens 98 % der Befehle muessen angekommen sein */
+  const quoteVerpasst = verpasst / gelaufeneTicks;
+  const quoteDa = angekommen / erwartet;
+  const traegt = !abbruch && quoteVerpasst <= 0.05 && fehler === 0 && quoteDa >= 0.98;
+
+  const zeile = {
+    takt, mikro: mikroAn, ticks: gelaufeneTicks, v95, vmax, w95, fehler,
+    verpasst, verworfen, quoteDa, traegt, mikroWaehrend, gelaufen, abbruch
+  };
+  laeufe.push(zeile);
+
+  const tr = document.createElement("tr");
+  tr.innerHTML = "<td>" + takt + " ms</td><td>" + (mikroAn ? "an" : "—") + "</td>"
+    + "<td>" + ticks + "</td><td>" + v95.toFixed(0) + " ms</td>"
+    + "<td>" + w95.toFixed(0) + " ms</td>"
+    + "<td style='color:" + (fehler ? "#e44" : "#3c3") + "'>" + fehler + "</td>";
+  $("#tabelle").appendChild(tr);
+
+  $("#urteil").className = "urteil " + (traegt ? "ja" : "nein");
+  $("#urteil").textContent = (abbruch ? "ABGEBROCHEN (" + abbruch + ") bei "
+                                      : traegt ? "TRÄGT bei " : "TRÄGT NICHT bei ") + takt + " ms"
+    + (mikroAn ? " (mit Mikrofon)" : " (ohne Mikrofon)") + ".  "
+    + (verworfen ? verworfen + " Befehle übersprungen, weil das Band noch sendete — "
+                   + "das ist die Bremse, nicht der Takt.  " : "")
+    + verpasst + " von " + gelaufeneTicks + " Ticks zu spät, Versatz p95 "
+    + v95.toFixed(0) + " ms (max " + vmax.toFixed(0) + "), Schreiben p95 "
+    + w95.toFixed(0) + " ms, " + fehler + " Fehler, "
+    + (quoteDa * 100).toFixed(0) + " % angekommen."
+    + (mikroAn ? "  Mikrofon lief dabei " + mikroWaehrend + " mal durch." : "")
+    + "  Jetzt mit dem Auge prüfen: blinken beide Bänder getrennt, oder verschmiert es?";
+  log($("#urteil").textContent);
+
+  document.querySelectorAll("button").forEach(x => x.disabled = false);
+  laeuft = false;
+});
+
+// --- Sperrtest: was kostet es wirklich, das Handy wegzulegen? ---
+Dauerhaft.beiMeldung(t => log("[dauerhaft] " + t));
+Dauerhaft.start({
+  wach: false,
+  dienst: DIENST, schreib: SCHREIB,
+  schreibweise: schreibweise,
+  baender: () => baender,
+  get rueckfall() {
+    const v = $("#rueckfall").value;
+    return v ? cmdModus(parseInt(v, 16)) : null;
+  }
+});
+
+$("#wach").onclick = async () => {
+  const ok = await Dauerhaft.wachAn();
+  $("#pw").className = "punkt" + (ok ? " an" : " fehler");
+  $("#tw").textContent = ok ? "Bildschirm bleibt an" : "Wachhalten geht hier nicht";
+};
+
+$("#sperrtest").onclick = async () => {
+  if (!baender[0]) { log("Mindestens Band 1 muss verbunden sein."); return; }
+  const ticks = [];            // {t, ok} je Sekunde
+  const ereignisse = [];       // Sichtbarkeitswechsel und Verbindungsabrisse
+  const t0 = performance.now();
+  const merker = (was) => ereignisse.push({ t: performance.now() - t0, was });
+  const aufSicht = () => merker("Sicht: " + document.visibilityState);
+  document.addEventListener("visibilitychange", aufSicht);
+
+  $("#sperrUrteil").className = "urteil grau";
+  $("#sperrUrteil").textContent = "läuft … JETZT das Handy sperren, ~30 s warten, "
+    + "dann wieder entsperren. Der Test läuft 90 s.";
+  log("--- Sperrtest: sperren, 30 s warten, entsperren ---");
+
+  for (let i = 0; i < 90; i++) {
+    const soll = t0 + i * 1000;
+    const warte = soll - performance.now();
+    if (warte > 0) await new Promise(r => setTimeout(r, warte));
+    const jetzt = performance.now() - t0;
+    let ok = false;
+    try {
+      if (baender[0] && baender[0].geraet.gatt.connected) {
+        await sende(baender[0], cmdFarbe(...(i % 2 ? korr(255, 0, 0) : [0, 0, 0])));
+        ok = true;
+      }
+    } catch (e) { merker("Schreibfehler: " + fehlertext(e)); }
+    ticks.push({ t: jetzt, ok });
+  }
+  document.removeEventListener("visibilitychange", aufSicht);
+
+  // Die groesste Luecke zwischen zwei Ticks ist die Zeit, in der JavaScript
+  // wirklich stillstand. Das ist die Zahl, um die es geht.
+  let luecke = 0, lueckeBei = 0;
+  for (let i = 1; i < ticks.length; i++) {
+    const d = ticks[i].t - ticks[i-1].t;
+    if (d > luecke) { luecke = d; lueckeBei = ticks[i-1].t; }
+  }
+  const nochVerbunden = baander0Verbunden();
+  const geschrieben = ticks.filter(x => x.ok).length;
+
+  $("#sperrUrteil").className = "urteil " + (luecke > 3000 ? "nein" : "ja");
+  $("#sperrUrteil").textContent =
+    "Größte Pause: " + (luecke / 1000).toFixed(1) + " s (ab Sekunde "
+    + (lueckeBei / 1000).toFixed(0) + "). " + geschrieben + " von 90 Befehlen gingen raus. "
+    + "Verbindung danach: " + (nochVerbunden ? "steht noch" : "weg") + ". "
+    + (luecke > 3000
+        ? "Im gesperrten Zustand läuft also NICHTS — so wie erwartet. Der Rückfall auf "
+          + "den Controller-Modus ist deshalb der einzige Weg, dass das Band weiterleuchtet."
+        : "Es lief durch — dann hat das Handy nicht wirklich gesperrt, bitte nochmal.")
+    + "  Ereignisse: " + (ereignisse.map(e => (e.t/1000).toFixed(0) + "s " + e.was).join(", ") || "keine");
+  log($("#sperrUrteil").textContent);
+};
+
+function baander0Verbunden() {
+  try { return !!(baender[0] && baender[0].geraet.gatt.connected); }
+  catch (e) { return false; }
+}
+
+$("#kopieren").onclick = async () => {
+  if (!laeufe.length) { log("Noch nichts gemessen."); return; }
+  const txt = "SPROSSE 0 — " + new Date().toLocaleString() + "\n"
+    + "Mikrofon: " + ($("#tm").textContent) + "\n\n"
+    + laeufe.map(l =>
+        l.takt + " ms | Mikro " + (l.mikro ? "an " : "aus") + " | " + l.ticks + " Ticks | "
+        + "Versatz p95 " + l.v95.toFixed(0) + " ms, max " + l.vmax.toFixed(0) + " ms | "
+        + "Schreiben p95 " + l.w95.toFixed(0) + " ms | "
+        + l.verpasst + " zu spät | " + l.fehler + " Fehler | "
+        + (l.quoteDa * 100).toFixed(0) + " % da | "
+        + (l.traegt ? "TRÄGT" : "TRÄGT NICHT")
+      ).join("\n");
+  try {
+    await navigator.clipboard.writeText(txt);
+    log("Ergebnis kopiert.");
+  } catch (e) {
+    logEl.textContent = txt + "\n\n" + logEl.textContent;
+    log("Zwischenablage ging nicht — Text steht jetzt oben im Log.");
+  }
+};
+
+/* --- Selbstpruefung: sagt beim Laden, was geht und was nicht ---------------
+   Ohne das sieht eine Seite, an der irgendetwas fehlt, genauso aus wie eine,
+   an der alles klappt - man tippt und nichts passiert. */
+(function selbsttest() {
+  const zeilen = [];
+  const haken = (ok, text, schlimm) =>
+    zeilen.push((ok ? "OK    " : (schlimm ? "NEIN  " : "fehlt ")) + text);
+
+  const sicher = window.isSecureContext;
+  haken(sicher, "sichere Verbindung (https) — ohne die gibt es kein Bluetooth", true);
+
+  const bt = !!navigator.bluetooth;
+  haken(bt, "Web Bluetooth vorhanden — sonst läuft die Seite nicht in Bluefy", true);
+
+  // Dauerhaft ist ein const im Script-Gueltigkeitsbereich und landet NICHT
+  // auf window — deshalb typeof auf den Namen selbst, nicht auf window.
+  haken(typeof Dauerhaft !== "undefined", "dauerhaft.js geladen");
+  haken(!!navigator.wakeLock, "Wake Lock (Bildschirm wachhalten)");
+  haken(!!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia), "Mikrofon-Zugriff");
+  haken(!!(window.AudioContext || window.webkitAudioContext), "Audio-Analyse");
+
+  const el = $("#selbsttest");
+  el.textContent = zeilen.join("\n");
+
+  if (!bt || !sicher) {
+    el.style.cssText = "background:#5a0000;color:#fff;padding:10px;border:2px solid #ff4444";
+    const grund = !sicher
+      ? "Die Seite läuft nicht über https. So gibt kein Browser Bluetooth frei."
+      : "Kein Web Bluetooth. Diese Seite muss in der App BLUEFY geöffnet werden, "
+        + "nicht in Safari oder Chrome.";
+    el.textContent = "SO GEHT ES NICHT:\n" + grund + "\n\n" + el.textContent;
+    log("SELBSTTEST GESCHEITERT — " + grund);
+  } else {
+    log("Selbsttest ok. Jetzt Band 1 verbinden.");
+  }
+
+  // Frueh aufgelaufene Fehler (vor dem Log-Element) nachtragen.
+  if (window.__probleme && window.__probleme.length) {
+    window.__probleme.forEach(p => log("FEHLER BEIM LADEN: " + p));
+  }
+
+  melde("Selbsttest", zeilen.join("\n") + "\nGeraet: " + navigator.userAgent
+        + "\nProbleme beim Laden: "
+        + ((window.__probleme || []).join(" | ") || "keine"));
+})();
+</script>
+</body>
+</html>
