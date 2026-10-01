@@ -168,11 +168,13 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
 <fieldset>
   <legend>4c · Unser Strobo (unsere Farbe, Takt von der Musik)</legend>
   <p class="hinweis">Das ist <b>nicht</b> das Mikrofon im Band, sondern unser
-  eigener Effekt: das <b>Handy</b> hört zu und schickt die Farbe. Braucht
-  Abschnitt 2 (Mikrofon an) und einen <b>wachen Bildschirm</b> — gesperrt hält
-  iOS JavaScript an, dann passiert nichts. Gemessene Decke der Funkstrecke:
-  <b>rund 3 Blitze pro Sekunde</b>, also ein Blitz pro Beat bis ~180 BPM.
-  Schnelleres kann nur das Band selbst (4b), dafür ohne Farbwahl.</p>
+  eigener Effekt: das <b>Handy</b> hört mit seinem eingebauten Mikrofon zu und
+  schickt die Farbe. Das Mikrofon schaltet sich beim Start <b>selbst ein</b>.
+  Braucht einen <b>wachen Bildschirm</b> — gesperrt hält iOS JavaScript an, dann
+  passiert nichts. Gemessene Decke der Funkstrecke: <b>rund 3 Blitze pro
+  Sekunde</b>, also ein Blitz pro Beat bis ~180 BPM; darüber blitzt es
+  automatisch jeden zweiten Beat. Schnelleres kann nur das Band selbst (4b),
+  dafür ohne Farbwahl.</p>
   <div class="hinweis">Effekt:
     <select id="stModus" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
       <option value="strobo">Strobo — deine Farben</option>
@@ -189,6 +191,17 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
   <div class="hinweis">Auslöser:
     <input id="stHub" type="range" min="4" max="40" value="12" style="vertical-align:middle">
     <span id="stHubText">12</span> — kleiner = blitzt öfter
+  </div>
+  <div class="hinweis">Takt:
+    <select id="stTakt" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
+      <option value="lock">gelockt — hält den Beat durch, auch wenn ein Kick fehlt</option>
+      <option value="reaktiv">reaktiv — blitzt nur auf gehörte Kicks</option>
+    </select>
+  </div>
+  <div class="hinweis">Vorlauf:
+    <input id="stVor" type="range" min="0" max="120" step="10" value="30" style="vertical-align:middle">
+    <span id="stVorText">30</span> ms früher senden — wenn das Licht dem Beat
+    nachläuft, größer stellen; wenn es vorauseilt, kleiner
   </div>
   <button id="stAn">Strobo an</button>
   <button id="stAus">Strobo aus</button>
@@ -504,6 +517,13 @@ async function mikroAufbauen() {
   await mikroCtx.resume();
   analyse = mikroCtx.createAnalyser();
   analyse.fftSize = 1024;
+  /* Glaettung herunter. Der Vorgabewert 0.8 mischt bei jedem Auslesen nur 20 %
+     neue Daten dazu - ein Kick braucht damit rund 10 Bilder (ca. 160 ms), bis
+     er im Spektrum voll angekommen ist, und die Spitze wird dabei flach. Beides
+     schiebt den Blitz hinter den Schlag. Mit 0.2 steht der Pegel nach einem
+     Bild. Dafuer ist das Signal zappeliger - das faengt die Untergrenze
+     ST_GATE zusammen mit dem Auslöser-Schieber ab. */
+  analyse.smoothingTimeConstant = 0.2;
   mikroQuelle = mikroCtx.createMediaStreamSource(mikroStrom);
   mikroQuelle.connect(analyse);
   mikroSenke = mikroCtx.createGain();
@@ -520,7 +540,18 @@ async function mikroAufbauen() {
     spur.onended = () => { mikroGrund = "System hat die Spur beendet (onended)"; };
   }
   mikroCtx.onstatechange = () => {
-    if (mikroCtx && mikroCtx.state !== "running") mikroGrund = "AudioContext: " + mikroCtx.state;
+    if (!mikroCtx || mikroCtx.state === "running") return;
+    mikroGrund = "AudioContext: " + mikroCtx.state;
+    /* Sofort versuchen aufzuwecken. Anruf, Wecker oder ein Systemton legen den
+       Zusammenhang unter iOS auf "suspended" - der Waechter in der
+       Pegelschleife faengt das zwar nach 1,5 s ab, aber ein Versuch hier
+       kostet nichts und spart die Stille. Ohne Fingertipp darf iOS das
+       ablehnen, deshalb abgefangen. */
+    if (mikroCtx.state === "suspended" && mikroAn) {
+      mikroCtx.resume().then(
+        () => log("AudioContext war suspended, von selbst wieder geweckt."),
+        () => {});
+    }
   };
   return mikroCtx.sampleRate;
 }
@@ -573,6 +604,30 @@ async function mikroWiederbeleben() {
   mikroNeustartLaeuft = false;
 }
 
+/* Mikrofon einschalten als eigene Funktion, damit auch 4c sie aufrufen kann.
+   Vorher hing das nur am Knopf von Abschnitt 2 - "Strobo an" lief dadurch ins
+   Leere, wenn MILOID den Knopf oben vergessen hatte. Gibt true zurueck, wenn
+   das Mikrofon danach wirklich laeuft. */
+async function mikroEin() {
+  if (mikroAn) return true;
+  try {
+    mikroNeuaufbauten = 0;
+    const rate = await mikroAufbauen();
+    mikroAn = true;
+    $("#mikro").textContent = "Mikrofon ausschalten";
+    $("#pm").className = "punkt an";
+    $("#tm").textContent = "Mikrofon läuft — " + (rate / 1000).toFixed(1) + " kHz";
+    log("Mikrofon offen, " + rate + " Hz. Bluefy gibt es frei.");
+    pegelSchleife();
+    return true;
+  } catch (e) {
+    $("#pm").className = "punkt fehler";
+    $("#tm").textContent = "Mikrofon verweigert: " + fehlertext(e);
+    log("MIKROFON GEHT NICHT: " + fehlertext(e) + " — dann bleibt die App eine Fernbedienung.");
+    return false;
+  }
+}
+
 $("#mikro").onclick = async () => {
   if (mikroAn) {
     mikroAn = false;
@@ -583,20 +638,7 @@ $("#mikro").onclick = async () => {
     log("Mikrofon aus.");
     return;
   }
-  try {
-    mikroNeuaufbauten = 0;
-    const rate = await mikroAufbauen();
-    mikroAn = true;
-    $("#mikro").textContent = "Mikrofon ausschalten";
-    $("#pm").className = "punkt an";
-    $("#tm").textContent = "Mikrofon läuft — " + (rate / 1000).toFixed(1) + " kHz";
-    log("Mikrofon offen, " + rate + " Hz. Bluefy gibt es frei.");
-    pegelSchleife();
-  } catch (e) {
-    $("#pm").className = "punkt fehler";
-    $("#tm").textContent = "Mikrofon verweigert: " + fehlertext(e);
-    log("MIKROFON GEHT NICHT: " + fehlertext(e) + " — dann bleibt die App eine Fernbedienung.");
-  }
+  await mikroEin();
 };
 
 /* Zurueck aus dem Hintergrund. iOS haelt den Zusammenhang an, und die Spur
@@ -885,15 +927,26 @@ $("#micAus").onclick = () => micSchalten(false);
 
 /* --- 4c: unser eigenes Strobo --------------------------------------------
    Pegelgesteuert wie die Bandmodi 0/1, aber die Farbe kommt von uns.
-   Absichtlich KEIN BPM-Erkenner: der Blitz haengt am Pegelsprung ueber dem
-   gleitenden Schnitt. Genau das Verhalten, das MILOID an Modus 0/1 gefallen
-   hat - und es braucht keine Taktverfolgung, die bei 3 Befehlen pro Sekunde
-   ohnehin nicht sauber laufen koennte.
-   ST_TAKT 165 ms ist gemessen (01.10.: 0 von 121 Ticks zu spaet, 100 %
-   angekommen). NICHT kleiner setzen - unter ~150 ms verschluckt die Funkstrecke
-   Blitze, die Decke liegt bei 3 Blitzen/s (am PC mit Kamera gemessen).
-   Pro Tick geht genau EIN Befehl raus. Damit ist die schnellste moegliche
-   Blitzfolge jeder zweite Tick = 3/s, also exakt die gemessene Decke. */
+
+   UMBAU 01.10. ABENDS - WARUM. Vorher hing der Blitz am 165-ms-Sendetakt:
+   erkannt wurde im Bildschirmtakt, gesendet aber erst beim naechsten Tick.
+   Damit lag jeder Blitz 0-165 ms hinter dem Kick (im Schnitt 82 ms) und der
+   Versatz war bei JEDEM Beat anders. Genau dieses Zittern sieht man als "passt
+   nicht zur Musik" - nicht die Hoehe der Verzoegerung, sondern dass sie
+   schwankt. Zwei Aenderungen:
+     1. SOFORT SENDEN. Der erkannte Kick loest den Blitz selbst aus, nicht der
+        naechste Tick. Der Tick bleibt nur noch fuer Schnitt, Pause und Anzeige.
+     2. TAKTSCHLOSS. Aus den Kickabstaenden kommen Beatlaenge und Phase; der
+        Blitz laeuft danach auf dem Gitter weiter, auch wenn ein Kick im Mix
+        untergeht. Dazu ein VORLAUF, damit das Licht nicht hinter dem Schlag
+        liegt - am PC waren 80 ms richtig, auf dem iPhone ist der Wert
+        UNGEMESSEN, deshalb als Schieber im Abschnitt.
+   ST_TAKT 165 ms bleibt, aber als MINDESTABSTAND JE BAND, nicht als Gitter:
+   gemessen (01.10.: 0 von 121 Ticks zu spaet, 100 % angekommen). NICHT kleiner
+   setzen - unter ~150 ms verschluckt die Funkstrecke Blitze, die Decke liegt
+   bei 3 Blitzen/s (am PC mit Kamera gemessen). Ein Blitz braucht zwei Befehle
+   (an, aus), also passt bis ~180 BPM ein Blitz pro Beat; darueber verdoppelt
+   stPeriode sich von selbst und es blitzt jeden zweiten Beat. */
 const ST_TAKT = 165;
 /* ERKENNUNG UND SENDEN SIND GETRENNT - das ist der Kern, und es war in der
    ersten Fassung falsch. Gegenpruefung Gemini 01.10.:
@@ -907,10 +960,34 @@ const ST_TAKT = 165;
    nur um 1-3 dB - der breitbandige Auslöser haette praktisch nie gegriffen. */
 const ST_BASS_VON = 40, ST_BASS_BIS = 120;   // Hz, das Kickband
 const ST_GATE = 70;        // absolute Untergrenze auf der Byte-Skala
+const ST_SPERRE = 200;     // Entprellung: zwei Kicks naeher als das sind einer
+/* Grundlinie, gegen die der Auslöser vergleicht: gleitender Mittelwert der
+   AUGENBLICKLICHEN Basspegel im Bildschirmtakt, Zeitkonstante rund 300 ms
+   (0.05 bei 60 Bildern/s). Vorher war die Grundlinie der Mittelwert der
+   165-ms-SPITZEN - gemessen am 01.10. im Prueflauf 8: wenn der Pegel sprang
+   (Lied an, Drop), lag er fuer rund 1,5 s komplett ueber dieser Linie und der
+   Auslöser feuerte durchgehend im Entprellungsabstand. Abstaende von 200 ms
+   im Protokoll statt der echten 420 - das Taktschloss hatte keine Chance.
+   Ein Kick von 20-50 ms bewegt eine 300-ms-Linie kaum, ein Pegelsprung ist
+   nach 300 ms aufgenommen. Genau das soll sie leisten. */
+const ST_BASIS_A = 0.05;
 let stTimer = null, stLupe = null, stSpektrum = null;
-let stMittel = null, stSpitze = 0, stImBlitz = false, stBlitze = 0, stTicks = 0;
+let stBasis = null, stSpitze = 0, stImBlitz = false, stBlitze = 0, stTicks = 0;
 let stLeise = 0, stPalette = 0;        // Palettenwechsel nach einer Pause
 let stKicks = [], stHalb = 0, stLetzterBounce = 0;
+/* Taktschloss */
+let stBeat = 0;            // gemessene Beatlaenge in ms (Median der Kickabstaende)
+let stPhase = 0;           // Zeitpunkt eines Gitter-Beats, wird nachgezogen
+let stGelockt = false;     // haengt das Gitter sicher an der Musik?
+let stPeriode = 0;         // Abstand zweier Blitze (Beat, notfalls verdoppelt)
+let stPlanTimer = null;    // naechster geplanter Blitz
+let stLetzterBlitz = 0, stLetzterKick = 0;
+let stFremd = 0;           // Kicks hintereinander neben dem Gitter
+let stVersatz = [];        // Kick gegen Gitter, nur zur Anzeige
+/* Mindestabstand je Band, mit Warteschlange der Laenge 1 (neuester Zustand
+   gewinnt). Ohne die Schlange wuerde ein zu frueh kommender AUS-Befehl
+   verworfen - das Band bliebe hell stehen, der schlimmste sichtbare Fehler. */
+let stLetztSchreib = [0, 0], stWarte = [null, null], stWarteTimer = [null, null];
 
 function hexRgb(h) {
   return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -919,18 +996,46 @@ function hexRgb(h) {
    Ohne `band` gehen beide, Band 2 um VERSATZ versetzt - zwei gleichzeitige
    Schreibvorgaenge stauen die Funkstrecke nachweislich auf 408-710 ms.
    Uebersprungene Befehle werden NICHT nachgeholt (siehe sende()). */
-function stFarbeRoh(rgb, band) {
-  const daten = cmdFarbe(rgb[0], rgb[1], rgb[2]);
+/* pflicht = true heisst "dieser Zustand MUSS raus": das Grundglimmen bzw. das
+   Blitz-Aus. Ein wartender Pflichtzustand darf von einem neuen Blitz NICHT
+   ueberschrieben werden - sonst bleibt das Band hell stehen, der schlimmste
+   sichtbare Fehler. Gegenpruefung Gemini 01.10., Fehler 1. Preis dafuer: in
+   diesem seltenen Fall fehlt ein Blitz. Richtig so. */
+function stSetzen(rgb, band, pflicht) {
+  const aktiv = baender.filter((b) => b && b.merkmal);
+  if (!aktiv[band]) return;
+  const t = performance.now();
+  const rest = ST_TAKT - (t - stLetztSchreib[band]);
+  if (rest <= 2) {
+    stLetztSchreib[band] = t;
+    stWarte[band] = null;
+    sende(aktiv[band], cmdFarbe(rgb[0], rgb[1], rgb[2])).catch(() => {});
+    return;
+  }
+  if (stWarte[band] && stWarte[band].pflicht && !pflicht) return;
+  stWarte[band] = { rgb: rgb, pflicht: !!pflicht };
+  if (!stWarteTimer[band]) {
+    stWarteTimer[band] = setTimeout(() => {
+      stWarteTimer[band] = null;
+      const offen = stWarte[band];
+      stWarte[band] = null;
+      if (offen) stSetzen(offen.rgb, band, offen.pflicht);
+    }, Math.max(2, rest));
+  }
+}
+function stFarbeRoh(rgb, band, pflicht) {
   const aktiv = baender.filter((b) => b && b.merkmal);
   if (!aktiv.length) return;
   if (band === undefined) {
-    if (aktiv[0]) sende(aktiv[0], daten).catch(() => {});
-    if (aktiv[1]) setTimeout(() => sende(aktiv[1], daten).catch(() => {}), VERSATZ);
-  } else if (aktiv[band]) {
-    sende(aktiv[band], daten).catch(() => {});
+    stSetzen(rgb, 0, pflicht);
+    if (aktiv[1]) setTimeout(() => stSetzen(rgb, 1, pflicht), VERSATZ);
+  } else {
+    stSetzen(rgb, band, pflicht);
   }
 }
-function stFarbe(rgb) { stFarbeRoh(korr(rgb[0], rgb[1], rgb[2])); }
+function stFarbe(rgb, pflicht) {
+  stFarbeRoh(korr(rgb[0], rgb[1], rgb[2]), undefined, pflicht);
+}
 /* Grundglimmen statt Schwarz: ein dunkles Band sieht aus wie ein Defekt. */
 const stGrund = (rgb) => rgb.map((v) => Math.round(v * 0.25));
 
@@ -989,17 +1094,131 @@ function stLupeTick() {
     for (let i = von; i <= bis; i++) summe += stSpektrum[i];
     const jetzt = summe / (bis - von + 1);
     if (jetzt > stSpitze) stSpitze = jetzt;
+    stHoeren(jetzt, performance.now());        // NEU: loest selbst aus
+    // Erst vergleichen, DANN die Grundlinie nachziehen - sonst liegt die echte
+    // Schwelle hoeher als die eingestellte (Gegenpruefung Gemini 01.10.).
+    stBasis = (stBasis === null) ? jetzt : stBasis + (jetzt - stBasis) * ST_BASIS_A;
   }
   stLupe = requestAnimationFrame(stLupeTick);
 }
 
-/* Industrial: identische Effektlogik wie das Strobo, nur der Farbvorrat
-   schrumpft - genau so ist es am PC gebaut. Die Grundfarbe kommt aus zwei()
-   und wird NICHT weiter abgedunkelt: der Deckel steckt schon drin. */
-function stIndustrial(schlag, vorrat) {
-  const p = vorrat[stPalette % vorrat.length].paar;
-  if (schlag && !stImBlitz) { stImBlitz = true; stBlitze++; stFarbeRoh(p.blitz); }
-  else if (stImBlitz)       { stImBlitz = false; stFarbeRoh(p.grund); }
+/* Auslöser. Vergleicht den AUGENBLICKLICHEN Basspegel gegen den gleitenden
+   Schnitt, den der langsame Tick fuehrt - und zwar gegen den ALTEN Schnitt,
+   damit die eingestellte Schwelle auch die echte ist (Gegenpruefung Gemini
+   01.10.). Entprellung ST_SPERRE: ein Kick dauert 20-50 ms und wuerde im
+   Bildschirmtakt sonst drei- bis viermal zaehlen. */
+function stHoeren(pegel, t) {
+  const hub = parseInt($("#stHub").value, 10);
+  const basis = (stBasis === null) ? pegel : stBasis;
+  if (pegel < ST_GATE || (pegel - basis) < hub) return;
+  if (t - stLetzterKick < ST_SPERRE) return;
+  stLetzterKick = t;
+  stKick(t);
+}
+
+/* Taktschloss. Beatlaenge = Median der Kickabstaende (kein geratener BPM-Wert,
+   dieselbe Regel wie in party.py). Gelockt wird erst, wenn drei Abstaende um
+   den Median zusammenliegen - ein einzelner Zufallstreffer darf das Gitter
+   nicht stellen. Phase wird SANFT nachgezogen (30 % des Fehlers), sonst
+   springt das Gitter bei jedem ungenau erkannten Kick. */
+function stKick(t) {
+  stKicks.push(t);
+  if (stKicks.length > 8) stKicks.shift();
+  const ab = [];
+  for (let i = 1; i < stKicks.length; i++) ab.push(stKicks[i] - stKicks[i - 1]);
+  if (ab.length >= 3) {
+    const s = ab.slice().sort((a, b) => a - b);
+    let med = s[Math.floor(s.length / 2)];
+    /* FALTEN. Bei Hardgroove loest der Offbeat-Bass mit aus, dann ist der
+       Median eine HALBE Beatlaenge - bei 143 BPM 208 ms, also unter der
+       Plausibilitaetsgrenze, und es wuerde nie locken (Gegenpruefung Gemini
+       01.10., Schwaeche 2). Deshalb den Median in das Fenster 250-1000 ms
+       verdoppeln bzw. halbieren und Abstaende auch dann als passend zaehlen,
+       wenn sie ein halbes oder doppeltes Vielfaches sind. */
+    while (med > 0 && med < 250) med *= 2;
+    while (med > 1000) med /= 2;
+    const passt = (a) => {
+      const v = a / med;
+      const raster = Math.round(v * 2) / 2;             // auf halbe Beats runden
+      return raster >= 0.5 && raster <= 2 && Math.abs(v - raster) <= 0.15;
+    };
+    const nah = ab.filter(passt).length;
+    const plausibel = med >= 250 && med <= 1000;        // 60 bis 240 BPM
+    if (plausibel && nah >= 3) {
+      stBeat = med;
+      stHalb = med / 2;
+      if (!stGelockt) { stGelockt = true; stPhase = t; stVersatz = []; stFremd = 0; }
+    } else if (nah < 2) {
+      stGelockt = false;
+    }
+  }
+  if (stGelockt && stBeat) {
+    const n = Math.round((t - stPhase) / stBeat);
+    const soll = stPhase + n * stBeat;
+    const fehler = t - soll;
+    if (Math.abs(fehler) <= stBeat * 0.3) {
+      stPhase = soll + fehler * 0.3;                    // sanft ziehen
+      stFremd = 0;
+      stVersatz.push(Math.round(fehler));
+      if (stVersatz.length > 8) stVersatz.shift();
+    } else {
+      /* Kick liegt NICHT auf dem Gitter - meist der Offbeat. Nicht sofort neu
+         verankern, sonst springt die Phase zwischen Beat und Offbeat hin und
+         her. Erst wenn DREI hintereinander daneben liegen, hat das Lied
+         wirklich gewechselt. */
+      stFremd++;
+      if (stFremd >= 3) { stPhase = t; stFremd = 0; stVersatz = []; }
+    }
+  }
+  if (stGelockt && $("#stTakt").value === "lock") stPlanen();
+  else stBlitzJetzt();                                   // reaktiv oder noch nicht gelockt
+}
+
+/* Naechsten Blitz auf das Gitter legen. Laeuft nach jedem Blitz von selbst
+   weiter - das ist das Freilaufen: ein im Mix untergegangener Kick reisst kein
+   Loch mehr ins Licht. VORLAUF zieht den Befehl vor den Schlag, weil Erkennung
+   und Funkstrecke zusammen Zeit kosten. */
+function stPlanen() {
+  if (stPlanTimer) { clearTimeout(stPlanTimer); stPlanTimer = null; }
+  if (!stroboAn || !stGelockt || !stBeat) return;
+  if ($("#stTakt").value !== "lock") return;
+  stPeriode = stBeat;
+  while (stPeriode < ST_TAKT * 2) stPeriode *= 2;       // ueber ~180 BPM: jeder zweite Beat
+  const vor = parseInt($("#stVor").value, 10) || 0;
+  const t = performance.now();
+  const n = Math.ceil((t + vor + 4 - stPhase) / stPeriode);
+  const ziel = stPhase + n * stPeriode - vor;
+  stPlanTimer = setTimeout(() => {
+    stPlanTimer = null;
+    stBlitzJetzt();
+    stPlanen();
+  }, Math.max(1, ziel - performance.now()));
+}
+
+/* Ein Blitz, sofort. Blitzlaenge = halbe Beatlaenge (Effektlogik aus
+   party.py), aber nie unter ST_TAKT - sonst kaeme der AUS-Befehl vor dem
+   Mindestabstand und das Band bliebe hell. */
+function stBlitzJetzt() {
+  if (!stroboAn) return;
+  const t = performance.now();
+  if (t - stLetzterBlitz < Math.max(ST_TAKT * 1.8, (stPeriode || 0) * 0.6)) return;
+  stLetzterBlitz = t;
+  stBlitze++;
+  const vorrat = stVorrat();
+  const laenge = Math.max(ST_TAKT, Math.min(Math.round(stHalb) || ST_TAKT, 240));
+  if ($("#stModus").value === "bounce" && vorrat) { stBounceFigur(vorrat, laenge); return; }
+  if (vorrat) {
+    const p = vorrat[stPalette % vorrat.length].paar;
+    stImBlitz = true;
+    stFarbeRoh(p.blitz);
+    setTimeout(() => { stImBlitz = false; stFarbeRoh(p.grund, undefined, true); }, laenge);
+    return;
+  }
+  const f1 = hexRgb($("#stFarbe1").value);
+  const f2 = $("#stEin").checked ? f1 : hexRgb($("#stFarbe2").value);
+  stImBlitz = true;
+  stFarbe(f2);
+  setTimeout(() => { stImBlitz = false; stFarbe(stGrund(f1), true); }, laenge);
 }
 
 /* Hardbounce: e_bounce aus party.py. Kick auf der Viertel an Band 1,
@@ -1009,33 +1228,27 @@ function stIndustrial(schlag, vorrat) {
    Die halbe Beatlaenge kommt aus den gemessenen Kickabstaenden (Median), nicht
    aus einer geratenen BPM. Faellt sie unter die Bremse (ueber rund 180 BPM),
    uebernimmt der reine Viertel-Kick auf beiden Baendern - dieselbe Reissleine
-   wie in e_bounce_kick(). Besser gar kein Offbeat als ein verschluckter. */
-function stBounce(schlag, vorrat) {
-  if (!schlag) return;
+   wie in e_bounce_kick(). Besser gar kein Offbeat als ein verschluckter.
+   Der Auslöser sitzt jetzt in stBlitzJetzt(), hier steht nur noch die Figur. */
+function stBounceFigur(vorrat, laenge) {
   const p = vorrat[stPalette % vorrat.length].paar;
   const glimm = stGrund(p.grund);
-  const t = performance.now();
-  const abst = [];
-  for (let i = 1; i < stKicks.length; i++) abst.push(stKicks[i] - stKicks[i - 1]);
-  abst.sort((a, b) => a - b);
-  const beat = abst.length ? abst[Math.floor(abst.length / 2)] : 0;
-  stHalb = beat ? beat / 2 : 0;
-  // Nicht in eine noch laufende Figur hineinfeuern.
-  if (t - stLetzterBounce < Math.max(ST_TAKT * 1.8, stHalb)) return;
-  stLetzterBounce = t;
-  stBlitze++;
+  stLetzterBounce = performance.now();
   const zweiBaender = baender.filter((b) => b && b.merkmal).length >= 2;
-  if (!zweiBaender || stHalb < ST_TAKT) {
+  if (!zweiBaender || !stHalb || stHalb < ST_TAKT) {
     stFarbeRoh(p.blitz);
-    setTimeout(() => { if (stroboAn) stFarbeRoh(glimm); }, ST_TAKT);
+    setTimeout(() => stFarbeRoh(glimm, undefined, true), laenge);
     return;
   }
-  stFarbeRoh(p.blitz, 0);                                                    // Kick links
-  setTimeout(() => { if (stroboAn) stFarbeRoh(glimm, 1); }, VERSATZ);        // Bass aus
-  setTimeout(() => { if (stroboAn) stFarbeRoh(glimm, 0); }, stHalb);         // Kick vorbei
+  stFarbeRoh(p.blitz, 0);                                            // Kick links
+  setTimeout(() => stFarbeRoh(glimm, 1, true), VERSATZ);             // Bass aus
+  setTimeout(() => stFarbeRoh(glimm, 0, true), stHalb);              // Kick vorbei
   setTimeout(() => { if (stroboAn) stFarbeRoh(p.grund, 1); }, stHalb + VERSATZ);  // Offbeat rechts
 }
 
+/* Der langsame Tick blitzt NICHT mehr. Er fuehrt nur noch den gleitenden
+   Schnitt, erkennt die Pause und schreibt die Anzeige - das Licht haengt
+   seit dem Umbau am Kick bzw. am Gitter. */
 function stroboTick() {
   if (!mikroAn || !analyse || !mikroDaten) {
     stroboStop("Mikrofon ist aus — Abschnitt 2 einschalten.");
@@ -1045,61 +1258,60 @@ function stroboTick() {
   const pegel = stSpitze;      // Spitze im Bass seit dem letzten Tick
   stSpitze = 0;
   const hub = parseInt($("#stHub").value, 10);
+  const basis = stBasis === null ? 0 : stBasis;   // gefuehrt im Bildschirmtakt
 
-  /* Gegen den ALTEN Schnitt vergleichen und erst DANACH nachziehen. Vorher
-     wurde im selben Tick erst gemittelt - dadurch lag die echte Schwelle
-     1/0,85 = 18 % hoeher als eingestellt (Gegenpruefung Gemini). */
-  const schnitt = (stMittel === null) ? pegel : stMittel;
-  stMittel = (stMittel === null) ? pegel : stMittel * 0.85 + pegel * 0.15;
-
-  /* Absolute Untergrenze. Ohne sie wandert der Schnitt in der Pause auf den
-     Rauschflur, und ein Huesteln im leisen Raum loest einen Blitz aus. */
-  const schlag = pegel >= ST_GATE && (pegel - schnitt) >= hub;
-
-  // Pause erkennen: ~1,5 s unter der Untergrenze, dann beim naechsten Einsatz
-  // die Palette weiterdrehen. Am PC haengt der Wechsel an Liedgrenze oder
-  // zweitem Drop - das ist hier nicht messbar, die Pause ist der naechste
-  // ehrliche Ersatz. ANNAHME, am Band noch nicht beurteilt.
-  if (pegel < ST_GATE) stLeise++;
-  else { if (stLeise >= 9) stPalette++; stLeise = 0; }
-
-  /* Entprellung, gemessen am 01.10. im Pruefstand: ein Kick, der eine
-     Tickgrenze ueberlappt, wird vom Spitzenwertspeicher in ZWEI
-     aufeinanderfolgenden Ticks gesehen. Ohne diese Sperre landen zwei
-     "Kicks" im Abstand von 165 ms in der Liste, der Median halbiert sich,
-     stHalb faellt unter die Funkbremse - und Hardbounce haengt dauerhaft im
-     Viertel-Rueckfall, ohne dass man den Grund sieht. 200 ms sind sicher:
-     bei 180 BPM liegt ein Beat bei 333 ms. */
-  if (schlag) {
-    const tk = performance.now();
-    if (!stKicks.length || tk - stKicks[stKicks.length - 1] >= 200) {
-      stKicks.push(tk);
-      if (stKicks.length > 5) stKicks.shift();
+  /* Pause erkennen: ~1,5 s unter der Untergrenze. Dann faellt das Gitter weg
+     (sonst strobt es im Break stur weiter) und beim naechsten Einsatz dreht
+     die Palette weiter. Am PC haengt der Wechsel an Liedgrenze oder zweitem
+     Drop - hier ist die Pause der naechste ehrliche Ersatz. ANNAHME, am Band
+     noch nicht beurteilt. */
+  if (pegel < ST_GATE) {
+    stLeise++;
+    if (stLeise === 9) {
+      stGelockt = false;
+      stKicks = [];
+      stVersatz = [];
+      stFremd = 0;
+      if (stPlanTimer) { clearTimeout(stPlanTimer); stPlanTimer = null; }
     }
+  } else {
+    if (stLeise >= 9) stPalette++;
+    stLeise = 0;
   }
 
   const vorrat = stVorrat();
-  if ($("#stModus").value === "bounce") stBounce(schlag, vorrat);
-  else if (vorrat) stIndustrial(schlag, vorrat);
-  else {
-    const f1 = hexRgb($("#stFarbe1").value);
-    const f2 = $("#stEin").checked ? f1 : hexRgb($("#stFarbe2").value);
-    if (schlag && !stImBlitz) { stImBlitz = true; stBlitze++; stFarbe(f2); }
-    else if (stImBlitz)       { stImBlitz = false; stFarbe(stGrund(f1)); }
-    // sonst nichts senden: das Band haelt das Grundglimmen von selbst.
-  }
-
+  const bpm = stBeat ? Math.round(60000 / stBeat) : 0;
+  const imGitter = stGelockt && $("#stTakt").value === "lock";
+  const vers = stVersatz.length
+    ? Math.round(stVersatz.reduce((a, b) => a + b, 0) / stVersatz.length) : null;
   $("#stUrteil").className = "urteil gut";
   $("#stUrteil").textContent = stBlitze + " Blitze · Bass " + Math.round(pegel)
-    + ", Schnitt " + Math.round(schnitt) + " · Auslöser ab +" + hub
-    + (vorrat ? " · Palette " + vorrat[stPalette % vorrat.length].name : "")
-    + (stHalb ? " · halber Beat " + Math.round(stHalb) + " ms" : "");
+    + ", Grundlinie " + Math.round(basis) + " · Auslöser ab +" + hub
+    + " · " + (imGitter
+        ? "gelockt" + (bpm ? " " + bpm + " BPM" : "")
+          + (vers === null ? "" : ", Kick " + (vers >= 0 ? "+" : "") + vers + " ms zum Gitter")
+        : "reaktiv" + (bpm ? ", gehört " + bpm + " BPM" : ""))
+    + (vorrat ? " · Palette " + vorrat[stPalette % vorrat.length].name : "");
 }
 
 function stroboStop(grund) {
   if (stTimer) { clearInterval(stTimer); stTimer = null; }
   if (stLupe) { cancelAnimationFrame(stLupe); stLupe = null; }
+  if (stPlanTimer) { clearTimeout(stPlanTimer); stPlanTimer = null; }
   stroboAn = false;
+  /* Wartende Zustaende NICHT wegwerfen. Vorher wurden sie hier geloescht -
+     stand gerade ein Blitz-Aus in der Schlange, blieb das Band hell stehen
+     (Gegenpruefung Gemini 01.10., "Fehlt 1"). Jetzt geht statt dessen das
+     Grundglimmen als Pflichtzustand raus, egal was wartete. */
+  [0, 1].forEach((n) => {
+    if (stWarteTimer[n]) { clearTimeout(stWarteTimer[n]); stWarteTimer[n] = null; }
+    stWarte[n] = null;
+  });
+  const vorratAus = stVorrat();
+  const ruhe = vorratAus
+    ? vorratAus[stPalette % vorratAus.length].paar.grund   // aus zwei(), nicht weiter dimmen
+    : korr(...stGrund(hexRgb($("#stFarbe1").value)));
+  stFarbeRoh(ruhe, undefined, true);
   if (grund) {
     $("#stUrteil").className = "urteil fehler";
     $("#stUrteil").textContent = grund;
@@ -1107,7 +1319,7 @@ function stroboStop(grund) {
   }
 }
 
-$("#stAn").onclick = () => {
+$("#stAn").onclick = async () => {
   if (laeuft)   { log("Erst die Messung fertig laufen lassen."); return; }
   if (stroboAn) { log("Strobo läuft schon."); return; }
   const u = $("#stUrteil");
@@ -1116,31 +1328,49 @@ $("#stAn").onclick = () => {
     u.textContent = "Kein Band verbunden — erst oben verbinden.";
     return;
   }
+  /* Mikrofon selbst holen statt abweisen. Der Knopf oben bleibt, aber ein
+     vergessener Klick darf den Effekt nicht totlegen. */
   if (!mikroAn) {
-    u.className = "urteil fehler";
-    u.textContent = "Mikrofon ist aus — erst Abschnitt 2 einschalten.";
-    return;
+    u.className = "urteil grau";
+    u.textContent = "Mikrofon wird eingeschaltet…";
+    if (!await mikroEin()) {
+      u.className = "urteil fehler";
+      u.textContent = "Mikrofon verweigert — einmal den Knopf in Abschnitt 2 "
+        + "drücken, dann hier nochmal.";
+      return;
+    }
   }
-  stMittel = null; stImBlitz = false; stBlitze = 0; stTicks = 0;
+  stBasis = null; stImBlitz = false; stBlitze = 0; stTicks = 0;
   stSpitze = 0; stLeise = 0; stPalette = 0; stKicks = []; stHalb = 0; stLetzterBounce = 0;
+  stBeat = 0; stPhase = 0; stGelockt = false; stPeriode = 0; stVersatz = [];
+  stLetzterBlitz = 0; stLetzterKick = 0; stLetztSchreib = [0, 0]; stFremd = 0;
   stroboAn = true;
   const vorrat = stVorrat();
   stFarbeRoh(vorrat ? vorrat[0].paar.grund : korr(...stGrund(hexRgb($("#stFarbe1").value))));
-  stLupe = requestAnimationFrame(stLupeTick);   // schnelle Erkennung
-  stTimer = setInterval(stroboTick, ST_TAKT);   // langsames Senden
-  log("4c an: " + $("#stModus").value + ", Takt " + ST_TAKT + " ms, Auslöser +"
+  stLupe = requestAnimationFrame(stLupeTick);   // Erkennung UND Auslöser
+  stTimer = setInterval(stroboTick, ST_TAKT);   // Schnitt, Pause, Anzeige
+  log("4c an: " + $("#stModus").value + ", Takt " + $("#stTakt").value
+      + ", Vorlauf " + $("#stVor").value + " ms, Auslöser +"
       + $("#stHub").value + " im Bassband " + ST_BASS_VON + "-" + ST_BASS_BIS + " Hz");
 };
 $("#stAus").onclick = () => {
   if (!stroboAn) return;
-  stroboStop(null);
-  const vorrat = stVorrat();
-  stFarbeRoh(vorrat ? vorrat[0].paar.grund : korr(...stGrund(hexRgb($("#stFarbe1").value))));
+  stroboStop(null);                     // schickt das Grundglimmen selbst raus
   $("#stUrteil").className = "urteil grau";
   $("#stUrteil").textContent = "Aus. " + stBlitze + " Blitze in " + stTicks + " Ticks.";
   log("4c aus nach " + stBlitze + " Blitzen.");
 };
 $("#stHub").oninput = () => { $("#stHubText").textContent = $("#stHub").value; };
+$("#stVor").oninput = () => {
+  $("#stVorText").textContent = $("#stVor").value;
+  if (stroboAn) stPlanen();                 // Verschiebung sofort wirksam
+};
+$("#stTakt").onchange = () => {
+  if (!stroboAn) return;
+  if ($("#stTakt").value === "lock") stPlanen();
+  else if (stPlanTimer) { clearTimeout(stPlanTimer); stPlanTimer = null; }
+  log("4c Takt: " + $("#stTakt").value);
+};
 $("#stModus").onchange = () => {
   const vorrat = stVorrat();
   $("#stPalette").textContent = vorrat
