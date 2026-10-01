@@ -173,14 +173,22 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
   iOS JavaScript an, dann passiert nichts. Gemessene Decke der Funkstrecke:
   <b>rund 3 Blitze pro Sekunde</b>, also ein Blitz pro Beat bis ~180 BPM.
   Schnelleres kann nur das Band selbst (4b), dafür ohne Farbwahl.</p>
+  <div class="hinweis">Effekt:
+    <select id="stModus" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
+      <option value="strobo">Strobo — deine Farben</option>
+      <option value="industrial">Industrial — Rot/Weiß, Grün/Weiß, nur Weiß</option>
+      <option value="bounce">Hardbounce Groove — Kick links, Offbeat rechts</option>
+    </select>
+  </div>
+  <div class="hinweis" id="stPalette">Farben kommen aus den Feldern unten.</div>
   <div class="hinweis">
     Grundglimmen: <input id="stFarbe1" type="color" value="#ff0000">
     &nbsp; Blitz: <input id="stFarbe2" type="color" value="#ffffff">
     &nbsp; <label><input id="stEin" type="checkbox"> einfarbig (Blitz = dieselbe Farbe, nur hell)</label>
   </div>
   <div class="hinweis">Auslöser:
-    <input id="stHub" type="range" min="1" max="12" value="5" style="vertical-align:middle">
-    <span id="stHubText">5 dB über dem Schnitt</span> — kleiner = blitzt öfter
+    <input id="stHub" type="range" min="4" max="40" value="12" style="vertical-align:middle">
+    <span id="stHubText">12</span> — kleiner = blitzt öfter
   </div>
   <button id="stAn">Strobo an</button>
   <button id="stAus">Strobo aus</button>
@@ -887,63 +895,210 @@ $("#micAus").onclick = () => micSchalten(false);
    Pro Tick geht genau EIN Befehl raus. Damit ist die schnellste moegliche
    Blitzfolge jeder zweite Tick = 3/s, also exakt die gemessene Decke. */
 const ST_TAKT = 165;
-let stTimer = null, stMittel = null, stImBlitz = false, stBlitze = 0, stTicks = 0;
+/* ERKENNUNG UND SENDEN SIND GETRENNT - das ist der Kern, und es war in der
+   ersten Fassung falsch. Gegenpruefung Gemini 01.10.:
+   getFloatTimeDomainData liefert nur das letzte Stueck Audio (bei fftSize 2048
+   und 48 kHz rund 43 ms). Wer das alle 165 ms liest, ist 74 % der Zeit TAUB,
+   und ein Kick von 20-50 ms faellt mehrheitlich in die Luecke. Deshalb jetzt:
+     - erkennen im Bildschirmtakt (~16 ms) mit Spitzenwertspeicher
+     - senden weiter nur alle ST_TAKT ms, denn mehr kann die Funkstrecke nicht
+   ZWEITE Korrektur aus derselben Pruefung: nur im BASSBAND messen statt
+   breitbandig. Bei komprimiertem Hardtechno hebt der Kick den Gesamtpegel oft
+   nur um 1-3 dB - der breitbandige Auslöser haette praktisch nie gegriffen. */
+const ST_BASS_VON = 40, ST_BASS_BIS = 120;   // Hz, das Kickband
+const ST_GATE = 70;        // absolute Untergrenze auf der Byte-Skala
+let stTimer = null, stLupe = null, stSpektrum = null;
+let stMittel = null, stSpitze = 0, stImBlitz = false, stBlitze = 0, stTicks = 0;
+let stLeise = 0, stPalette = 0;        // Palettenwechsel nach einer Pause
+let stKicks = [], stHalb = 0, stLetzterBounce = 0;
 
 function hexRgb(h) {
   return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 }
-/* Farbe an beide Baender, Band 2 um VERSATZ versetzt: zwei gleichzeitige
+/* Farbe raus, OHNE korr(): fuer Paletten, die schon korrigiert sind (zwei()).
+   Ohne `band` gehen beide, Band 2 um VERSATZ versetzt - zwei gleichzeitige
    Schreibvorgaenge stauen die Funkstrecke nachweislich auf 408-710 ms.
-   Uebersprungene Befehle werden NICHT nachgeholt (siehe sende()) - beim Strobo
-   zaehlt nur der neueste Zustand. */
-function stFarbe(rgb) {
-  const daten = cmdFarbe(...korr(rgb[0], rgb[1], rgb[2]));
+   Uebersprungene Befehle werden NICHT nachgeholt (siehe sende()). */
+function stFarbeRoh(rgb, band) {
+  const daten = cmdFarbe(rgb[0], rgb[1], rgb[2]);
   const aktiv = baender.filter((b) => b && b.merkmal);
-  if (aktiv[0]) sende(aktiv[0], daten).catch(() => {});
-  if (aktiv[1]) setTimeout(() => sende(aktiv[1], daten).catch(() => {}), VERSATZ);
+  if (!aktiv.length) return;
+  if (band === undefined) {
+    if (aktiv[0]) sende(aktiv[0], daten).catch(() => {});
+    if (aktiv[1]) setTimeout(() => sende(aktiv[1], daten).catch(() => {}), VERSATZ);
+  } else if (aktiv[band]) {
+    sende(aktiv[band], daten).catch(() => {});
+  }
 }
-/* Grundglimmen statt Schwarz: ein dunkles Band sieht aus wie ein Defekt.
-   Faktor 0.25 haelt die Grundfarbe 4x unter dem Blitz - die Leuchtdichte-Regel
-   aus dem PC-Projekt verlangt mindestens 2x. */
+function stFarbe(rgb) { stFarbeRoh(korr(rgb[0], rgb[1], rgb[2])); }
+/* Grundglimmen statt Schwarz: ein dunkles Band sieht aus wie ein Defekt. */
 const stGrund = (rgb) => rgb.map((v) => Math.round(v * 0.25));
+
+/* --- Paletten 1:1 aus party.py ------------------------------------------- */
+const LEUCHT = (f) => 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2];
+/* BLITZ ist in party.py Zeile 41 ABSICHTLICH unkorrigiert: (255,255,255), also
+   die hellste Stufe, die das Band kann - nicht das neutrale Weiss 255/161/51.
+   MILOID am 29.09.: "ich moechte die hellste stufe, es muss hell sein um die
+   tanzflaeche auszustrahlen". Damit ist BLITZ_LUM = 255 und der Deckel in
+   zwei() liegt bei 127,5 - genau die Zahl, auf der die drei Hardbounce-Farben
+   am PC landen. Wer hier korr() davorsetzt, verschiebt den ganzen Deckel. */
+const BLITZ = [255, 255, 255];
+const BLITZ_LUM = LEUCHT(BLITZ);       // 255
+const WEISS_ABSTAND = 2.0;
+/* zwei() ist _zwei() aus party.py Zeile 103, Schritt fuer Schritt derselbe:
+   korrigieren, proportional bis Anschlag hochziehen (ohne das kann Gruen an
+   dieser Hardware nie knallen, weil korr() es auf 160 drosselt), dann auf
+   Leuchtdichte BLITZ_LUM/2 deckeln, damit der weisse Blitz immer traegt. */
+function zwei(r, g, b) {
+  let f = korr(r, g, b);
+  const m = Math.max(f[0], f[1], f[2]);
+  if (m) f = f.map((k) => Math.min(255, Math.round(k * 255 / m)));
+  const lum = LEUCHT(f);
+  if (lum > 0 && BLITZ_LUM / lum < WEISS_ABSTAND) {
+    const anteil = BLITZ_LUM / (WEISS_ABSTAND * lum);
+    f = f.map((k) => Math.round(k * anteil));
+  }
+  return { grund: f, blitz: BLITZ };
+}
+// Rohwerte woertlich aus party.py: INDUSTRIAL_ROH (Zeile 146) und
+// HARDBOUNCE_ROH (Zeile 184). Nicht nachgebaut, abgeschrieben.
+const INDUSTRIAL = [["Rot", 255, 0, 0], ["Grün", 0, 255, 0], ["Weiß", 255, 255, 255]]
+  .map((p) => ({ name: p[0], paar: zwei(p[1], p[2], p[3]) }));
+const HARDBOUNCE = [["Magenta", 255, 160, 200], ["Orange", 255, 180, 30],
+                    ["Violett", 120, 90, 255]]
+  .map((p) => ({ name: p[0], paar: zwei(p[1], p[2], p[3]) }));
+function stVorrat() {
+  const a = $("#stModus").value;
+  if (a === "industrial") return INDUSTRIAL;
+  if (a === "bounce") return HARDBOUNCE;
+  return null;
+}
+
+/* Schnelle Lupe: laeuft im Bildschirmtakt und haelt nur die SPITZE im
+   Bassband fest. Sendet nie selbst - das macht allein stroboTick(). */
+function stLupeTick() {
+  if (!stroboAn) return;
+  if (analyse && mikroCtx) {
+    if (!stSpektrum || stSpektrum.length !== analyse.frequencyBinCount)
+      stSpektrum = new Uint8Array(analyse.frequencyBinCount);
+    analyse.getByteFrequencyData(stSpektrum);
+    const breite = mikroCtx.sampleRate / analyse.fftSize;
+    const von = Math.max(1, Math.floor(ST_BASS_VON / breite));
+    const bis = Math.min(stSpektrum.length - 1, Math.ceil(ST_BASS_BIS / breite));
+    let summe = 0;
+    for (let i = von; i <= bis; i++) summe += stSpektrum[i];
+    const jetzt = summe / (bis - von + 1);
+    if (jetzt > stSpitze) stSpitze = jetzt;
+  }
+  stLupe = requestAnimationFrame(stLupeTick);
+}
+
+/* Industrial: identische Effektlogik wie das Strobo, nur der Farbvorrat
+   schrumpft - genau so ist es am PC gebaut. Die Grundfarbe kommt aus zwei()
+   und wird NICHT weiter abgedunkelt: der Deckel steckt schon drin. */
+function stIndustrial(schlag, vorrat) {
+  const p = vorrat[stPalette % vorrat.length].paar;
+  if (schlag && !stImBlitz) { stImBlitz = true; stBlitze++; stFarbeRoh(p.blitz); }
+  else if (stImBlitz)       { stImBlitz = false; stFarbeRoh(p.grund); }
+}
+
+/* Hardbounce: e_bounce aus party.py. Kick auf der Viertel an Band 1,
+   Offbeat-Bass an Band 2 - je Band also nur ZWEI Befehle pro Beat, eine halbe
+   Beatlaenge auseinander. Genau deshalb passt der Groove in die Funkbremse,
+   obwohl es vier Befehle pro Beat sind.
+   Die halbe Beatlaenge kommt aus den gemessenen Kickabstaenden (Median), nicht
+   aus einer geratenen BPM. Faellt sie unter die Bremse (ueber rund 180 BPM),
+   uebernimmt der reine Viertel-Kick auf beiden Baendern - dieselbe Reissleine
+   wie in e_bounce_kick(). Besser gar kein Offbeat als ein verschluckter. */
+function stBounce(schlag, vorrat) {
+  if (!schlag) return;
+  const p = vorrat[stPalette % vorrat.length].paar;
+  const glimm = stGrund(p.grund);
+  const t = performance.now();
+  const abst = [];
+  for (let i = 1; i < stKicks.length; i++) abst.push(stKicks[i] - stKicks[i - 1]);
+  abst.sort((a, b) => a - b);
+  const beat = abst.length ? abst[Math.floor(abst.length / 2)] : 0;
+  stHalb = beat ? beat / 2 : 0;
+  // Nicht in eine noch laufende Figur hineinfeuern.
+  if (t - stLetzterBounce < Math.max(ST_TAKT * 1.8, stHalb)) return;
+  stLetzterBounce = t;
+  stBlitze++;
+  const zweiBaender = baender.filter((b) => b && b.merkmal).length >= 2;
+  if (!zweiBaender || stHalb < ST_TAKT) {
+    stFarbeRoh(p.blitz);
+    setTimeout(() => { if (stroboAn) stFarbeRoh(glimm); }, ST_TAKT);
+    return;
+  }
+  stFarbeRoh(p.blitz, 0);                                                    // Kick links
+  setTimeout(() => { if (stroboAn) stFarbeRoh(glimm, 1); }, VERSATZ);        // Bass aus
+  setTimeout(() => { if (stroboAn) stFarbeRoh(glimm, 0); }, stHalb);         // Kick vorbei
+  setTimeout(() => { if (stroboAn) stFarbeRoh(p.grund, 1); }, stHalb + VERSATZ);  // Offbeat rechts
+}
 
 function stroboTick() {
   if (!mikroAn || !analyse || !mikroDaten) {
     stroboStop("Mikrofon ist aus — Abschnitt 2 einschalten.");
     return;
   }
-  analyse.getFloatTimeDomainData(mikroDaten);
-  let summe = 0;
-  for (let i = 0; i < mikroDaten.length; i++) summe += mikroDaten[i] * mikroDaten[i];
-  const rms = Math.sqrt(summe / mikroDaten.length);
-  const db = 20 * Math.log10(rms + 1e-9);
   stTicks++;
-
-  /* Gleitenden Schnitt beim ersten Tick gleichsetzen statt bei 0 anfangen -
-     sonst zieht er vom Boden hoch und die erste Sekunde blitzt durchgehend. */
-  if (stMittel === null) stMittel = db;
-  else stMittel = stMittel * 0.85 + db * 0.15;
-
+  const pegel = stSpitze;      // Spitze im Bass seit dem letzten Tick
+  stSpitze = 0;
   const hub = parseInt($("#stHub").value, 10);
-  const f1 = hexRgb($("#stFarbe1").value);
-  const f2 = $("#stEin").checked ? f1 : hexRgb($("#stFarbe2").value);
-  /* rms > 0 ist Pflicht: bei totem Mikrofon steht db auf -180, der Schnitt
-     zieht mit, und die Differenz koennte sonst einen Blitz ausloesen - das
-     Band wuerde im Takt blitzen, obwohl gar kein Ton ankommt. */
-  const schlag = rms > 0 && (db - stMittel) >= hub;
 
-  if (schlag && !stImBlitz) { stImBlitz = true; stBlitze++; stFarbe(f2); }
-  else if (stImBlitz)       { stImBlitz = false; stFarbe(stGrund(f1)); }
-  // sonst nichts senden: das Band haelt das Grundglimmen von selbst, und jeder
-  // gesparte Befehl ist Luft fuer den naechsten Blitz.
+  /* Gegen den ALTEN Schnitt vergleichen und erst DANACH nachziehen. Vorher
+     wurde im selben Tick erst gemittelt - dadurch lag die echte Schwelle
+     1/0,85 = 18 % hoeher als eingestellt (Gegenpruefung Gemini). */
+  const schnitt = (stMittel === null) ? pegel : stMittel;
+  stMittel = (stMittel === null) ? pegel : stMittel * 0.85 + pegel * 0.15;
+
+  /* Absolute Untergrenze. Ohne sie wandert der Schnitt in der Pause auf den
+     Rauschflur, und ein Huesteln im leisen Raum loest einen Blitz aus. */
+  const schlag = pegel >= ST_GATE && (pegel - schnitt) >= hub;
+
+  // Pause erkennen: ~1,5 s unter der Untergrenze, dann beim naechsten Einsatz
+  // die Palette weiterdrehen. Am PC haengt der Wechsel an Liedgrenze oder
+  // zweitem Drop - das ist hier nicht messbar, die Pause ist der naechste
+  // ehrliche Ersatz. ANNAHME, am Band noch nicht beurteilt.
+  if (pegel < ST_GATE) stLeise++;
+  else { if (stLeise >= 9) stPalette++; stLeise = 0; }
+
+  /* Entprellung, gemessen am 01.10. im Pruefstand: ein Kick, der eine
+     Tickgrenze ueberlappt, wird vom Spitzenwertspeicher in ZWEI
+     aufeinanderfolgenden Ticks gesehen. Ohne diese Sperre landen zwei
+     "Kicks" im Abstand von 165 ms in der Liste, der Median halbiert sich,
+     stHalb faellt unter die Funkbremse - und Hardbounce haengt dauerhaft im
+     Viertel-Rueckfall, ohne dass man den Grund sieht. 200 ms sind sicher:
+     bei 180 BPM liegt ein Beat bei 333 ms. */
+  if (schlag) {
+    const tk = performance.now();
+    if (!stKicks.length || tk - stKicks[stKicks.length - 1] >= 200) {
+      stKicks.push(tk);
+      if (stKicks.length > 5) stKicks.shift();
+    }
+  }
+
+  const vorrat = stVorrat();
+  if ($("#stModus").value === "bounce") stBounce(schlag, vorrat);
+  else if (vorrat) stIndustrial(schlag, vorrat);
+  else {
+    const f1 = hexRgb($("#stFarbe1").value);
+    const f2 = $("#stEin").checked ? f1 : hexRgb($("#stFarbe2").value);
+    if (schlag && !stImBlitz) { stImBlitz = true; stBlitze++; stFarbe(f2); }
+    else if (stImBlitz)       { stImBlitz = false; stFarbe(stGrund(f1)); }
+    // sonst nichts senden: das Band haelt das Grundglimmen von selbst.
+  }
 
   $("#stUrteil").className = "urteil gut";
-  $("#stUrteil").textContent = stBlitze + " Blitze · Pegel " + db.toFixed(0)
-    + " dB, Schnitt " + stMittel.toFixed(0) + " dB · Auslöser ab +" + hub + " dB";
+  $("#stUrteil").textContent = stBlitze + " Blitze · Bass " + Math.round(pegel)
+    + ", Schnitt " + Math.round(schnitt) + " · Auslöser ab +" + hub
+    + (vorrat ? " · Palette " + vorrat[stPalette % vorrat.length].name : "")
+    + (stHalb ? " · halber Beat " + Math.round(stHalb) + " ms" : "");
 }
 
 function stroboStop(grund) {
   if (stTimer) { clearInterval(stTimer); stTimer = null; }
+  if (stLupe) { cancelAnimationFrame(stLupe); stLupe = null; }
   stroboAn = false;
   if (grund) {
     $("#stUrteil").className = "urteil fehler";
@@ -967,21 +1122,32 @@ $("#stAn").onclick = () => {
     return;
   }
   stMittel = null; stImBlitz = false; stBlitze = 0; stTicks = 0;
+  stSpitze = 0; stLeise = 0; stPalette = 0; stKicks = []; stHalb = 0; stLetzterBounce = 0;
   stroboAn = true;
-  stFarbe(stGrund(hexRgb($("#stFarbe1").value)));
-  stTimer = setInterval(stroboTick, ST_TAKT);
-  log("Unser Strobo an, Takt " + ST_TAKT + " ms, Auslöser +" + $("#stHub").value + " dB");
+  const vorrat = stVorrat();
+  stFarbeRoh(vorrat ? vorrat[0].paar.grund : korr(...stGrund(hexRgb($("#stFarbe1").value))));
+  stLupe = requestAnimationFrame(stLupeTick);   // schnelle Erkennung
+  stTimer = setInterval(stroboTick, ST_TAKT);   // langsames Senden
+  log("4c an: " + $("#stModus").value + ", Takt " + ST_TAKT + " ms, Auslöser +"
+      + $("#stHub").value + " im Bassband " + ST_BASS_VON + "-" + ST_BASS_BIS + " Hz");
 };
 $("#stAus").onclick = () => {
   if (!stroboAn) return;
   stroboStop(null);
-  stFarbe(stGrund(hexRgb($("#stFarbe1").value)));
+  const vorrat = stVorrat();
+  stFarbeRoh(vorrat ? vorrat[0].paar.grund : korr(...stGrund(hexRgb($("#stFarbe1").value))));
   $("#stUrteil").className = "urteil grau";
   $("#stUrteil").textContent = "Aus. " + stBlitze + " Blitze in " + stTicks + " Ticks.";
-  log("Unser Strobo aus nach " + stBlitze + " Blitzen.");
+  log("4c aus nach " + stBlitze + " Blitzen.");
 };
-$("#stHub").oninput = () => {
-  $("#stHubText").textContent = $("#stHub").value + " dB über dem Schnitt";
+$("#stHub").oninput = () => { $("#stHubText").textContent = $("#stHub").value; };
+$("#stModus").onchange = () => {
+  const vorrat = stVorrat();
+  $("#stPalette").textContent = vorrat
+    ? "Feste Palette aus party.py: " + vorrat.map((p) => p.name).join(" → ")
+      + ". Wechselt nach jeder Pause. Die Farbfelder unten gelten dann nicht."
+    : "Farben kommen aus den Feldern unten.";
+  stPalette = 0;
 };
 
 /* --- 4d: greift Farbe/Helligkeit/Tempo im Mikro-Modus? -------------------
