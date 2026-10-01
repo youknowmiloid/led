@@ -157,12 +157,71 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
       <option value="6">6</option><option value="7">7</option>
     </select>
     &nbsp; Empfindlichkeit:
-    <input id="micEmp" type="number" min="0" max="255" value="80"
+    <input id="micEmp" type="number" min="0" max="100" value="50"
            style="width:5em;background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
+    <span id="micGemerkt" style="color:#888"></span>
   </div>
   <button id="micAn">Mikro-Modus an (beide Bänder)</button>
   <button id="micAus">zurück auf Farbe</button>
   <div class="urteil grau" id="micUrteil">Noch nicht geschaltet.</div>
+  <p class="hinweis"><b>Der gewählte Modus wird gemerkt</b> — auch über das Sperren
+  und über einen Neustart der Seite hinweg. Abschnitt 5 fällt damit auf genau
+  diesen Modus zurück, nicht mehr auf 0.</p>
+  <hr style="border:0;border-top:1px solid #222;margin:14px 0">
+  <p class="hinweis"><b>Welcher Modus sieht wie aus?</b> Noch nicht erfasst — das
+  klärt dieser Durchlauf. Er zeigt Modus 0 bis 7 der Reihe nach, je 8 Sekunden,
+  und schreibt groß hin, welcher gerade läuft. Musik muss laufen.
+  <b>Sag mir danach nur: welche Nummern sind einfarbig, welche zweifarbig, welche
+  Regenbogen.</b> Das entscheidet, ob wir überhaupt etwas umbauen müssen.</p>
+  <button id="micRundgang">Alle 8 Modi durchzeigen (65 s)</button>
+  <button id="micRundgangStop">abbrechen</button>
+  <div class="urteil grau" id="micRundUrteil" style="font-size:1.4em">Noch nicht durchgezeigt.</div>
+</fieldset>
+
+<fieldset style="border-color:#4a7">
+  <legend style="color:#6c9">4f · EINFARBIG in der Hardware — ohne Gezappel</legend>
+  <p class="hinweis">Das ist wahrscheinlich das, was du willst, und es war die ganze
+  Zeit da: der Controller hat <b>sieben einfarbige Strobos</b> eingebaut — rot, grün,
+  blau, gelb, cyan, magenta, weiß. Am PC gemessen mit <b>5,4 Blitzen pro Sekunde</b>,
+  also schneller als wir über Funk je schicken können (unsere Decke ist 3/s). Läuft
+  in der Hardware: Handy sperren, weglegen, App zumachen — blitzt weiter.</p>
+  <p class="hinweis"><b>Zweifarbig geht, indem die Bänder verschiedene Farben
+  bekommen.</b> Band 1 rot, Band 2 weiß — zwei Farben, kein Regenbogen, keine
+  Palettenwechsel. Nichts wechselt, nichts zappelt.</p>
+  <div class="hinweis">Band 1:
+    <select id="hwB1" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
+      <option value="0x96">rot</option><option value="0x97">grün</option>
+      <option value="0x98">blau</option><option value="0x99">gelb</option>
+      <option value="0x9A">cyan</option><option value="0x9B">magenta</option>
+      <option value="0x9C">weiß</option>
+    </select>
+    &nbsp; Band 2:
+    <select id="hwB2" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
+      <option value="0x96">rot</option><option value="0x97">grün</option>
+      <option value="0x98">blau</option><option value="0x99">gelb</option>
+      <option value="0x9A">cyan</option><option value="0x9B">magenta</option>
+      <option value="0x9C">weiß</option>
+    </select>
+  </div>
+  <div class="hinweis">Tempo:
+    <input id="hwTempo" type="range" min="1" max="100" value="60" style="vertical-align:middle">
+    <span id="hwTempoText">60</span> — damit stellst du die Blitzrate auf deinen
+    Track ein. Welche Zahl welchem Tempo entspricht, ist nicht gemessen: nach
+    Augenmaß schieben, bis es zum Track passt.
+  </div>
+  <button id="hwAn">Einfarbig an (beide Bänder)</button>
+  <button id="hwMusik">dasselbe, aber auf die Musik hören</button>
+  <button id="hwAus">zurück auf Farbe</button>
+  <div class="urteil grau" id="hwUrteil">Noch nicht geschaltet.</div>
+  <p class="hinweis"><b>Was die zwei Knöpfe unterscheiden — ehrlich:</b><br>
+  <b>„Einfarbig an"</b> blitzt im <b>festen Takt</b>, nicht auf die Musik. Dafür
+  sicher, sofort, und du kannst das Tempo danebenschieben. Das ist der Knopf, der
+  heute Abend garantiert funktioniert.<br>
+  <b>„auf die Musik hören"</b> schickt davor das Mikrofon-Bit des Chips und ist
+  der <b>Versuch</b>, dasselbe einfarbige Strobo vom Bandmikrofon auslösen zu
+  lassen. Wenn das greift, hast du genau was du beschrieben hast: Erkennung wie
+  bei „Band hört selbst", aber einfarbig. <b>Ungetestet</b> — sag mir, ob es auf
+  die Musik reagiert oder stur weiterblitzt.</p>
 </fieldset>
 
 <fieldset>
@@ -209,18 +268,59 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
 </fieldset>
 
 <fieldset>
-  <legend>4d · Greift Farbe WÄHREND des Mikro-Modus? (Test)</legend>
-  <p class="hinweis">Die eine offene Frage: wenn ein Farbbefehl im Mikro-Modus
-  greift, bekommst du das schnelle Strobo aus dem Chip <b>in unserer Farbe</b>,
-  bei gesperrtem Handy — das wäre die beste aller Fassungen. Jeder Knopf ändert
-  <b>genau eine</b> Sache. Der Reihe nach drücken und nach jedem hinsehen.</p>
-  <button id="t1">1 · Mikro-Modus 0 an</button>
-  <button id="t2">2 · nur Farbe rot</button>
-  <button id="t3">3 · nur Helligkeit 30</button>
-  <button id="t4">4 · nur Tempo 20</button>
+  <legend>4d · Kriegen wir die Modi 1–3 in EINER Farbe? (Leiter)</legend>
+  <p class="hinweis"><b>Das ist dein Punkt:</b> Erkennung der Bandmodi behalten,
+  Regenbogen-Gezappel raus. Wenn ein Farbbefehl im Mikro-Modus greift, läuft das
+  schnelle Strobo aus dem Chip <b>in unserer Farbe</b> — bei gesperrtem Handy, ohne
+  dass das Handy mithören muss. Das ist die beste aller Fassungen, und es sind
+  vier verschiedene Wege, auf denen das klappen könnte.</p>
+  <p class="hinweis">Jeder Knopf ändert gegenüber Stufe 1 <b>genau eine</b> Sache.
+  Erst 1 drücken (Grundzustand), dann 2 bis 5 der Reihe nach, und nach jedem
+  hinsehen. Vor 3, 4 und 5 schickt die Seite den Grundzustand selbst neu — du
+  musst nicht zurückspringen.</p>
+  <button id="t1">1 · Mikro-Modus an (Grundzustand)</button>
+  <button id="t2">2 · Farbe rot DANACH</button>
+  <button id="t3">3 · Farbe rot VORHER, dann Modus</button>
+  <button id="t4">4 · Farbe IM Modus-Befehl</button>
+  <button id="t5">5 · anderer Modus-Rahmen (7E 05 03)</button>
   <div class="urteil grau" id="tUrteil">Noch nichts getestet.</div>
-  <p class="hinweis">Nach jedem Knopf zwei Dinge ansehen: <b>strobt es noch</b>,
-  und <b>welche Farbe</b>? Vier kurze Antworten reichen mir.</p>
+  <p class="hinweis">Nach jedem Knopf <b>zwei</b> Dinge: strobt es noch, und welche
+  Farbe? „strobt rot" bei irgendeiner Stufe = gewonnen, dann baue ich genau die ein.
+  Fünf kurze Antworten reichen mir — „2 bunt, 3 bunt, 4 rot aber steht, 5 strobt rot"
+  ist perfekt.</p>
+  <p class="hinweis"><b>„Es hört auf zu strobben und steht auf rot" ist auch eine
+  Antwort</b>, kein Fehler. Gegenprüfung Gemini: bei diesem Chip beendet ein
+  Farbbefehl voraussichtlich den Mikro-Modus statt ihn einzufärben. Genau deshalb
+  prüfen wir es, statt es anzunehmen. Wenn alle fünf Stufen das tun, ist die Frage
+  beantwortet und <b>4f ist der Weg</b> — nicht dieser hier.</p>
+  <hr style="border:0;border-top:1px solid #222;margin:14px 0">
+  <button id="t6">6 · nur Helligkeit 30</button>
+  <button id="t7">7 · nur Tempo 20</button>
+  <p class="hinweis">Die zwei sind Beiwerk: greift die Helligkeit, kannst du das
+  Band im Mikro-Modus wenigstens dimmen. Nur drücken, wenn oben alles durch ist.</p>
+</fieldset>
+
+<fieldset>
+  <legend>4e · Warum die Empfindlichkeit nichts tut (Leiter)</legend>
+  <p class="hinweis">Du hast recht, dass nichts passiert — und ich habe den Grund
+  gefunden: die Seite schickt sie <b>im falschen Register</b>. Bisher ging
+  <code>7E 00 07 SS</code> mit Werten 0–255 raus; die Referenz-Steuerungen für
+  diesen Chip nutzen <code>7E 04 06 SS</code> mit Werten <b>0–100</b>. Welches von
+  beiden dein Band versteht, zeigt diese Leiter.</p>
+  <p class="hinweis">Jeder Knopf macht dasselbe Experiment auf einem anderen Weg:
+  Modus setzen, dann <b>Empfindlichkeit 5</b> (sollte fast taub sein, kaum Reaktion
+  auf Musik) — 8 Sekunden hinsehen — dann <b>Empfindlichkeit 95</b> (sollte auf
+  alles anspringen) — 8 Sekunden hinsehen. <b>Ändert sich zwischen den beiden
+  Hälften etwas, greift dieser Weg.</b> Ändert sich nichts, ist es der falsche.
+  Musik muss laufen.</p>
+  <button id="e1">1 · alter Weg 7E 00 07 (0–255)</button>
+  <button id="e2">2 · neuer Weg 7E 04 06 (0–100)</button>
+  <button id="e3">3 · neuer Weg + Mikro erst einschalten</button>
+  <button id="e4">4 · alter Weg, aber NACH dem Modus</button>
+  <button id="eStop">abbrechen</button>
+  <div class="urteil grau" id="eUrteil" style="font-size:1.3em">Noch nichts getestet.</div>
+  <p class="hinweis">Antwort pro Knopf reicht in drei Worten: „taub/scharf
+  unterschiedlich" oder „gleich geblieben".</p>
 </fieldset>
 
 <fieldset>
@@ -233,7 +333,8 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
   <button id="wach">Bildschirm wachhalten (Wake Lock)</button>
   <div class="hinweis">Rückfall beim Sperren:
     <select id="rueckfall" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
-      <option value="mic:0">Band hört selbst weiter (Mikro-Modus 0)</option>
+      <option value="mic:last">Band hört selbst weiter — <b>zuletzt gewählter Modus</b></option>
+      <option value="mic:0">Band hört selbst weiter (immer Mikro-Modus 0)</option>
       <option value="0x95">Band läuft im 7-Farb-Strobo weiter</option>
       <option value="0x9C">Band läuft im Weiß-Strobo weiter</option>
       <option value="0x89">Band läuft im weichen Verlauf weiter</option>
@@ -244,7 +345,8 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
   <div class="urteil grau" id="sperrUrteil">Noch nicht getestet.</div>
 </fieldset>
 
-<pre id="log">Bereit. Reihenfolge: beide Bänder verbinden → Sichtprobe → 165 ms ohne Mikrofon → Mikrofon an → 165 ms nochmal → Sperrtest.
+<pre id="log">FASSUNG v9 — Modus wird gemerkt, Empfindlichkeits-Leiter in 4e, Farb-Leiter in 4d.
+Steht hier NICHT v9, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
 </pre>
 <script src="dauerhaft.js"></script>
 
@@ -352,6 +454,97 @@ const cmdModus = (m)       => rahmen(0x00, 0x03, m, 0x03, 0x00, 0x00, 0x00);
 const cmdMic    = (m) => rahmen(0x00, 0x03, 0x80 | m, 0x04, 0x00, 0x00, 0x00);
 const cmdMicEmp = (s) => rahmen(0x00, 0x07, s, 0x00, 0x00, 0x00, 0x00);
 const korr = (r, g, b) => [Math.round(r*KORR.r), Math.round(g*KORR.g), Math.round(b*KORR.b)];
+
+/* --- Mikro-Befehle: die anderen Register ---------------------------------
+   Gefunden am 01.10. abends, nachdem MILOID gemeldet hat, dass die
+   Empfindlichkeit nichts tut. Die Seite schickte sie ueber `cmdMicEmp`
+   (7E 00 07 SS, Bereich 0-255) - das stand seit dem ersten Tag als ANNAHME
+   im Code, nie gemessen. Die beiden gepflegten Fremdsteuerungen fuer genau
+   diesen Chip (dave-code-ruiz/elkbledom, FergusInLondon/ELK-BLEDOM) nutzen
+   dagegen 7E 04 06 SS mit Bereich 0-100, und schalten das Mikrofon davor mit
+   einem eigenen Befehl ueberhaupt erst an.
+
+   Welches Register DIESES Band versteht, entscheidet keine Vermutung, sondern
+   die Leiter in Abschnitt 4e. Darum stehen hier alle Varianten nebeneinander
+   und keine ist als "die richtige" markiert, solange die Antwort fehlt.
+
+   WICHTIG zu "Variante A ist tot": der Verbindungsabwurf vom 18.09. kam aus
+   dem Ablauf in mictest.py (108 s ins Leere senden), nicht aus einem einzelnen
+   dieser Rahmen. Ein einzelner Schreibvorgang ist etwas anderes als ein
+   Dauerlauf - deshalb ist der Weg hier wieder offen, aber nur knopfweise. */
+const cmdMicEmpA = (s) => rahmen(0x04, 0x06, s, 0xFF, 0xFF, 0xFF, 0x00);
+const cmdMicAn   = (an) => rahmen(0x04, 0x07, an ? 0x01 : 0x00, 0xFF, 0xFF, 0xFF, 0x00);
+// Farbe in den Modus-Befehl selbst gelegt: bei cmdMic stehen auf Byte 5-7
+// Nullen. Vielleicht sind das die Farbkanaele - kostet einen Knopf, es zu wissen.
+const cmdMicFarbe = (m, r, g, b) => rahmen(0x00, 0x03, 0x80 | m, 0x04, r, g, b);
+// Der Modus-Rahmen der Fremdsteuerungen: Byte 1 = 05 statt 00, FF FF am Ende.
+const cmdMicA = (m) => rahmen(0x05, 0x03, 0x80 | m, 0x04, 0xFF, 0xFF, 0x00);
+
+/* --- Merker: was MILOID gewaehlt hat, ueberlebt Sperre und Neustart -------
+   Grund (MILOID am 01.10.): "wenn ich mein handy sperre springt immer wieder
+   der erste modus rein". Zwei verschiedene Ursachen steckten dahinter, beide
+   werden hier erledigt:
+     1. Der Rueckfall in Abschnitt 5 hatte "mic:0" fest als erste Auswahl -
+        beim Sperren ging also Modus 0 raus, egal was oben gewaehlt war.
+     2. Nach einem Neuladen der Seite stand das Auswahlfeld wieder auf 0,
+        weil nichts gespeichert war.
+   localStorage ueberlebt in Bluefy auch das Schliessen der App. Faellt es aus
+   (privates Fenster), arbeitet die Seite einfach ohne Gedaechtnis weiter. */
+const Merk = {
+  lies(schluessel, ersatz) {
+    try {
+      const v = localStorage.getItem("miloid-led." + schluessel);
+      return v === null ? ersatz : v;
+    } catch (e) { return ersatz; }
+  },
+  schreib(schluessel, wert) {
+    try { localStorage.setItem("miloid-led." + schluessel, String(wert)); } catch (e) {}
+  },
+  /* Feld an den Merker haengen: Wert beim Laden zuruecksetzen, bei jeder
+     Aenderung speichern. Ein Aufruf pro Feld, damit nichts vergessen wird. */
+  /* Zahlenfelder werden an min/max geklemmt, BEVOR gespeichert wird.
+     Gemessen im Prueflauf 01.10.: ohne das stand nach einem Neuladen wieder
+     die 200 im Empfindlichkeitsfeld, die MILOID vorher eingetippt hatte -
+     gesendet wurden aber 100, weil micSchalten begrenzt. Das Feld log also
+     ueber den Zustand des Bandes, und genau solche Abweichungen kosten
+     hinterher eine Sitzung Fehlersuche. Geklemmt wird hier, weil das die
+     einzige Stelle ist, die jedes Feld anfasst. */
+  klemm(el) {
+    if (el.type !== "number") return;
+    const v = parseFloat(el.value);
+    if (!isFinite(v)) { el.value = el.min || "0"; return; }
+    const lo = el.min === "" ? -Infinity : parseFloat(el.min);
+    const hi = el.max === "" ? Infinity : parseFloat(el.max);
+    el.value = String(Math.max(lo, Math.min(hi, v)));
+  },
+  feld(id, ersatz, danach) {
+    const el = $(id);
+    if (!el) return;
+    const gemerkt = this.lies(id.slice(1), null);
+    if (gemerkt !== null) {
+      if (el.type === "checkbox") el.checked = gemerkt === "true";
+      else el.value = gemerkt;
+    } else if (ersatz !== undefined) {
+      if (el.type === "checkbox") el.checked = !!ersatz; else el.value = ersatz;
+    }
+    this.klemm(el);
+    const sichern = (klemmen) => {
+      /* Beim Tippen NICHT klemmen. Wer das Feld erst leert, um 50 statt 5
+         einzugeben, haette sonst mitten im Tippen eine 0 im Feld und kaeme
+         nicht weiter. Geklemmt wird, wenn das Feld den Fokus verliert
+         (change) - da ist die Eingabe fertig. */
+      if (klemmen) this.klemm(el);
+      this.schreib(id.slice(1), el.type === "checkbox" ? el.checked : el.value);
+      if (danach) danach();
+    };
+    el.addEventListener("change", () => sichern(true));
+    el.addEventListener("input", () => sichern(false));
+  }
+};
+// Der zuletzt WIRKLICH geschaltete Mikro-Modus. Nicht dasselbe wie das
+// Auswahlfeld: MILOID kann im Feld herumdrehen, ohne zu schalten. Der
+// Rueckfall soll den Zustand treffen, in dem das Band gerade steht.
+let micModusAktiv = parseInt(Merk.lies("micModusAktiv", "0"), 10) || 0;
 
 // Bluefy (WKWebView) liefert BluetoothDevice.id NICHT. Jedes blinde
 // geraet.id.slice() wirft dort einen TypeError - und zwar erst NACH dem
@@ -869,6 +1062,12 @@ Dauerhaft.start({
     // Die Empfindlichkeit wird hier NICHT mitgeschickt: im Hintergrund bleiben
     // nur Millisekunden, ein zweiter Schreibvorgang kommt dort oft nicht mehr
     // durch. Sie steht im Controller noch von "Mikro-Modus an".
+    if (v === "mic:last") {
+      /* MILOIDs Punkt vom 01.10.: beim Sperren sprang immer Modus 0 rein.
+         Hier kommt jetzt der Modus, in dem das Band tatsaechlich steht -
+         `micModusAktiv`, nicht das Auswahlfeld, und nicht die feste 0. */
+      return cmdMic(micModusAktiv);
+    }
     if (v.indexOf("mic:") === 0) return cmdMic(parseInt(v.slice(4), 10));
     return cmdModus(parseInt(v, 16));
   }
@@ -888,13 +1087,30 @@ async function micSchalten(an) {
   }
   const m = parseInt($("#micModus").value, 10);
   let s = parseInt($("#micEmp").value, 10);
-  if (!isFinite(s)) s = 80;
-  s = Math.max(0, Math.min(255, s));
+  if (!isFinite(s)) s = 50;
+  /* Bereich jetzt 0-100, nicht 0-255. Beide Fremdsteuerungen fuer diesen Chip
+     geben 0-100 an; ein Wert von 200 landete im alten Code ungeprueft im Byte
+     und konnte dort alles heissen. 0-100 ist in beiden Registern gueltig. */
+  s = Math.max(0, Math.min(100, s));
   const schlecht = [];
   let gut = 0;
   for (const b of aktiv) {
     try {
       if (an) {
+        /* NUR der am Geraet bestaetigte Weg. Erste Fassung schickte hier
+           zusaetzlich cmdMicAn und cmdMicEmpA, damit der Regler sofort etwas
+           tut - Gegenpruefung Gemini 01.10. hat das zu Recht als Fehler
+           benannt: die 7E-04-Rahmen stehen unter dem alten Verdacht, die
+           Verbindung abzuwerfen ("Variante A ist tot", dreimal gemessen am
+           18.09.). Vier ungepufferte Schreibvorgaenge auf Bluefy sind
+           ausserdem genau die Lage, in der GATT-Zeitueberschreitungen
+           auftreten.
+
+           Damit gilt: der Bedienweg bleibt auf dem Stand, der am Band
+           nachweislich laeuft. Die neuen Register gehen AUSSCHLIESSLICH in der
+           Leiter 4e raus, knopfweise, wo ein Abwurf nur einen Test kostet und
+           nicht den Abend. Sagt die Leiter, welches Register greift, wird hier
+           genau eines nachgezogen. */
         await sende(b, cmdMicEmp(s));
         await sende(b, cmdMic(m));
       } else {
@@ -904,6 +1120,13 @@ async function micSchalten(an) {
     } catch (e) {
       schlecht.push(fehlertext(e));
     }
+  }
+  // Nur merken, wenn wirklich etwas angekommen ist - sonst zeigt der Merker
+  // auf einen Zustand, in dem das Band gar nicht steht.
+  if (an && gut) {
+    micModusAktiv = m;
+    Merk.schreib("micModusAktiv", m);
+    $("#micGemerkt").textContent = " · gemerkt: Modus " + m;
   }
   if (!gut) {
     u.className = "urteil fehler";
@@ -1412,10 +1635,224 @@ async function testStufe(name, folge) {
       + (schlecht.length ? " — " + schlecht.join(" / ") : ""));
 }
 
-$("#t1").onclick = () => testStufe("1 Mikro-Modus 0 an", [cmdMicEmp(80), cmdMic(0)]);
-$("#t2").onclick = () => testStufe("2 nur Farbe rot",    [cmdFarbe(...korr(255, 0, 0))]);
-$("#t3").onclick = () => testStufe("3 nur Helligkeit 30", [cmdHell(30)]);
-$("#t4").onclick = () => testStufe("4 nur Tempo 20",      [cmdTempo(20)]);
+/* Die Leiter dreht sich um MILOIDs Satz vom 01.10.: die Erkennung der Bandmodi
+   ist gut, nur das Farbgezappel soll weg. Gewinnt eine dieser Stufen, ist das
+   die Loesung - Firmware-Strobo in EINER Farbe, bei gesperrtem Handy.
+
+   Die Stufen 3, 4 und 5 bauen den Grundzustand selbst neu auf. Sonst waere
+   nicht klar, ob eine Stufe deshalb anders aussieht, weil ihr Befehl greift,
+   oder weil die Stufe davor noch nachhaengt - genau der Fehler vom 19.09.,
+   als eine Leiter zwei Dinge gleichzeitig verstellte. */
+const tRot = () => korr(255, 0, 0);
+const tModus = () => parseInt($("#micModus").value, 10) || 0;
+
+$("#t1").onclick = () => testStufe("1 Mikro-Modus " + tModus() + " an (Grundzustand)",
+  [cmdMicAn(true), cmdMicEmpA(50), cmdMic(tModus())]);
+$("#t2").onclick = () => testStufe("2 Farbe rot DANACH",
+  [cmdFarbe(...tRot())]);
+$("#t3").onclick = () => testStufe("3 Farbe rot VORHER, dann Modus",
+  [cmdFarbe(...tRot()), cmdMic(tModus())]);
+$("#t4").onclick = () => testStufe("4 Farbe IM Modus-Befehl",
+  [cmdMicFarbe(tModus(), ...tRot())]);
+$("#t5").onclick = () => testStufe("5 anderer Modus-Rahmen 7E 05 03",
+  [cmdFarbe(...tRot()), cmdMicA(tModus())]);
+$("#t6").onclick = () => testStufe("6 nur Helligkeit 30", [cmdHell(30)]);
+$("#t7").onclick = () => testStufe("7 nur Tempo 20",      [cmdTempo(20)]);
+
+/* --- 4e: welches Empfindlichkeits-Register versteht das Band? --------------
+   MILOID: "die empfindlichkeit loest ebenfalls nichts aus." Bestaetigt - die
+   Seite schickte 7E 00 07 SS, was nie gemessen war. Statt jetzt EINE Vermutung
+   einzubauen und ihn nochmal testen zu lassen, laufen alle vier Wege als
+   Leiter: taub (5) gegen scharf (95), je 8 s, auf jedem Weg einzeln. Aendert
+   sich das Bild nur bei einem Knopf, ist die Frage mit einer Testrunde
+   beantwortet statt mit vier. */
+let eLaeuft = false, eAbbruch = false;
+
+function ePause(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function eStufe(name, folgeTaub, folgeScharf) {
+  const aktiv = baender.filter((b) => b && b.merkmal);
+  const u = $("#eUrteil");
+  if (!aktiv.length) {
+    u.className = "urteil fehler";
+    u.textContent = "Kein Band verbunden — erst oben verbinden.";
+    return;
+  }
+  if (eLaeuft) { u.textContent = "Läuft noch — erst abbrechen."; return; }
+  eLaeuft = true; eAbbruch = false;
+  const schlecht = [];
+  const schick = async (folge) => {
+    for (const b of aktiv) {
+      try { for (const d of folge) await sende(b, d); }
+      catch (e) { schlecht.push(fehlertext(e)); }
+    }
+  };
+  try {
+    u.className = "urteil grau";
+    u.textContent = name + " — TAUB (5). Jetzt 8 s hinsehen: reagiert es auf die Musik?";
+    log("4e " + name + ": taub (5)");
+    await schick(folgeTaub);
+    for (let i = 8; i > 0 && !eAbbruch; i--) {
+      u.textContent = name + " — TAUB (5), noch " + i + " s. Reagiert es auf die Musik?";
+      await ePause(1000);
+    }
+    if (eAbbruch) { u.textContent = "Abgebrochen."; return; }
+    u.className = "urteil grau";
+    u.textContent = name + " — SCHARF (95). Jetzt 8 s hinsehen: ist es anders als vorhin?";
+    log("4e " + name + ": scharf (95)");
+    await schick(folgeScharf);
+    for (let i = 8; i > 0 && !eAbbruch; i--) {
+      u.textContent = name + " — SCHARF (95), noch " + i + " s. Anders als vorhin?";
+      await ePause(1000);
+    }
+    u.className = schlecht.length ? "urteil fehler" : "urteil gut";
+    u.textContent = name + " durch. " + (eAbbruch ? "abgebrochen. " : "")
+      + (schlecht.length ? "Fehler: " + schlecht.join(" / ") + ". " : "")
+      + "War zwischen taub und scharf ein Unterschied zu sehen? "
+      + "Ja = dieser Weg greift. Nein = falsches Register.";
+    log("4e " + name + " durch" + (schlecht.length ? " — " + schlecht.join(" / ") : ""));
+  } finally { eLaeuft = false; }
+}
+
+// Jede Stufe setzt den Modus mit, damit das Band ueberhaupt hoert. Der
+// Unterschied zwischen den Stufen ist allein der Weg der Empfindlichkeit.
+$("#e1").onclick = () => eStufe("1 alter Weg 7E 00 07",
+  [cmdMicEmp(5),  cmdMic(tModus())],
+  [cmdMicEmp(95), cmdMic(tModus())]);
+$("#e2").onclick = () => eStufe("2 neuer Weg 7E 04 06",
+  [cmdMicEmpA(5),  cmdMic(tModus())],
+  [cmdMicEmpA(95), cmdMic(tModus())]);
+$("#e3").onclick = () => eStufe("3 neuer Weg + Mikro erst an",
+  [cmdMicAn(true), cmdMicEmpA(5),  cmdMic(tModus())],
+  [cmdMicAn(true), cmdMicEmpA(95), cmdMic(tModus())]);
+$("#e4").onclick = () => eStufe("4 alter Weg NACH dem Modus",
+  [cmdMic(tModus()), cmdMicEmp(5)],
+  [cmdMic(tModus()), cmdMicEmp(95)]);
+$("#eStop").onclick = () => { eAbbruch = true; };
+
+/* --- 4f: die sieben einfarbigen Strobos der Hardware ----------------------
+   Der Fund, der MILOIDs Satz direkt beantwortet, und er lag die ganze Zeit in
+   modi.py: 0x96-0x9C sind einfarbige Blinker (rot, gruen, blau, gelb, cyan,
+   magenta, weiss), am PC mit 5,0-5,4 Blitzen pro Sekunde gemessen. Kein
+   Farbwechsel, keine Palette, kein Regenbogen - genau das "kein Gezappel", um
+   das es ihm geht. Sie laufen im Effekt-Rahmen (Sub-Byte 03) und damit in der
+   Hardware weiter, auch bei gesperrtem Handy.
+
+   Zweifarbig entsteht nicht im Chip, sondern dadurch, dass die zwei Baender
+   verschiedene Modi bekommen. Das ist der ganze Trick und er kostet nichts.
+
+   Zwei Knoepfe, weil zwei verschiedene Dinge dahinter stehen und MILOID wissen
+   muss, welches er drueckt:
+     hwAn    - fester Takt. Gemessen, sicher, reagiert NICHT auf Musik.
+     hwMusik - derselbe Modus, davor das Mikrofon-Bit des Chips. Der Versuch,
+               die Firmware-Erkennung auf einen einfarbigen Modus zu legen.
+               Kommt aus der Gegenpruefung Gemini 01.10. UNGETESTET.
+   Sie sind getrennt, damit eine Antwort eindeutig zu einem Weg gehoert. Ein
+   Knopf, der beides mischt, koennte die Ursache nicht benennen. */
+async function hwSchalten(mitMusik) {
+  const aktiv = baender.filter((b) => b && b.merkmal);
+  const u = $("#hwUrteil");
+  if (!aktiv.length) {
+    u.className = "urteil fehler";
+    u.textContent = "Kein Band verbunden — erst oben verbinden.";
+    return;
+  }
+  const tempo = parseInt($("#hwTempo").value, 10) || 60;
+  const namen = { "0x96": "rot", "0x97": "grün", "0x98": "blau", "0x99": "gelb",
+                  "0x9A": "cyan", "0x9B": "magenta", "0x9C": "weiß" };
+  const schlecht = [];
+  let gut = 0;
+  const gewaehlt = [];
+  for (let i = 0; i < baender.length; i++) {
+    const b = baender[i];
+    if (!b || !b.merkmal) continue;
+    // Jedes Band bekommt seinen eigenen Modus - daraus entsteht "zweifarbig".
+    const wahl = $(i === 0 ? "#hwB1" : "#hwB2").value;
+    gewaehlt.push("Band " + (i + 1) + " " + (namen[wahl] || wahl));
+    try {
+      if (mitMusik) await sende(b, cmdMicAn(true));
+      await sende(b, cmdTempo(tempo));
+      await sende(b, cmdModus(parseInt(wahl, 16)));
+      gut++;
+    } catch (e) { schlecht.push(fehlertext(e)); }
+  }
+  if (!gut) {
+    u.className = "urteil fehler";
+    u.textContent = "Nichts angekommen: " + schlecht.join(" / ");
+    return;
+  }
+  u.className = "urteil gut";
+  u.textContent = gewaehlt.join(", ") + ", Tempo " + tempo + ". "
+    + (mitMusik
+        ? "Mikrofon-Bit ist mit raus. SIEH HIN: reagiert es jetzt auf die Musik, "
+          + "oder blitzt es stur im festen Takt weiter? Das ist die Antwort, die ich brauche."
+        : "Fester Takt, keine Musikreaktion — Tempo danebenschieben bis es passt. "
+          + "Handy darf gesperrt werden, läuft in der Hardware weiter.")
+    + (schlecht.length ? " Fehler: " + schlecht.join(" / ") : "");
+  log("4f " + (mitMusik ? "mit Mikro-Bit" : "fester Takt") + ": "
+      + gewaehlt.join(", ") + ", Tempo " + tempo);
+}
+
+$("#hwAn").onclick    = () => hwSchalten(false);
+$("#hwMusik").onclick = () => hwSchalten(true);
+$("#hwAus").onclick   = async () => {
+  const aktiv = baender.filter((b) => b && b.merkmal);
+  if (!aktiv.length) return;
+  for (const b of aktiv) {
+    try { await sende(b, cmdFarbe(...korr(255, 160, 50))); } catch (e) {}
+  }
+  $("#hwUrteil").className = "urteil grau";
+  $("#hwUrteil").textContent = "Zurück auf feste Farbe.";
+  log("4f aus, zurueck auf Farbe");
+};
+$("#hwTempo").oninput = () => { $("#hwTempoText").textContent = $("#hwTempo").value; };
+
+/* --- 4b: alle acht Modi durchzeigen --------------------------------------
+   Steht seit dem ersten Tag als offener Punkt im Projekt ("welcher der Modi
+   0-7 wie aussieht: nicht erfasst"), und genau das entscheidet jetzt alles:
+   ist einer davon schon einfarbig, braucht MILOID keine der Leitern oben,
+   sondern nur die Nummer. 65 s gegen vielleicht eine ganze Umbaurunde. */
+let rundLaeuft = false, rundAbbruch = false;
+
+$("#micRundgangStop").onclick = () => { rundAbbruch = true; };
+
+$("#micRundgang").onclick = async () => {
+  const aktiv = baender.filter((b) => b && b.merkmal);
+  const u = $("#micRundUrteil");
+  if (!aktiv.length) {
+    u.className = "urteil fehler";
+    u.textContent = "Kein Band verbunden — erst oben verbinden.";
+    return;
+  }
+  if (rundLaeuft) return;
+  rundLaeuft = true; rundAbbruch = false;
+  log("--- Rundgang: Modi 0-7, je 8 s ---");
+  try {
+    for (let m = 0; m <= 7 && !rundAbbruch; m++) {
+      for (const b of aktiv) {
+        try {
+          await sende(b, cmdMicAn(true));
+          await sende(b, cmdMicEmpA(50));
+          await sende(b, cmdMic(m));
+        } catch (e) { log("Rundgang Modus " + m + ": " + fehlertext(e)); }
+      }
+      u.className = "urteil gut";
+      for (let i = 8; i > 0 && !rundAbbruch; i--) {
+        u.textContent = "MODUS " + m + " — noch " + i + " s";
+        await ePause(1000);
+      }
+    }
+    // Zurueck auf den Modus, in dem MILOID das Band haben wollte - der
+    // Rundgang soll seine Auswahl nicht heimlich ueberschreiben.
+    for (const b of aktiv) { try { await sende(b, cmdMic(micModusAktiv)); } catch (e) {} }
+    u.className = "urteil grau";
+    u.textContent = rundAbbruch
+      ? "Abgebrochen, zurück auf Modus " + micModusAktiv + "."
+      : "Durch. Zurück auf Modus " + micModusAktiv
+        + ". Sag mir: welche Nummern waren einfarbig, welche zweifarbig, welche Regenbogen?";
+    log("Rundgang " + (rundAbbruch ? "abgebrochen" : "durch") + ", zurueck auf " + micModusAktiv);
+  } finally { rundLaeuft = false; }
+};
 
 $("#wach").onclick = async () => {
   const ok = await Dauerhaft.wachAn();
@@ -1502,6 +1939,43 @@ $("#kopieren").onclick = async () => {
     log("Zwischenablage ging nicht — Text steht jetzt oben im Log.");
   }
 };
+
+/* --- Alles merken, was MILOID eingestellt hat ------------------------------
+   Steht bewusst GANZ UNTEN: hier existieren alle Felder und alle onchange-
+   Handler schon. Wuerde der Block weiter oben stehen, saetze er Werte in
+   Felder, deren Handler noch nicht haengt - die Anzeige daneben bliebe dann
+   auf dem alten Stand stehen.
+
+   Ausloeser war MILOIDs Satz vom 01.10. ueber den Mikro-Modus, aber dasselbe
+   galt fuer jedes andere Feld auch: Seite neu laden hiess bisher, alles von
+   Hand nachstellen. Der Vorlauf in 4c ist das beste Beispiel - der wird im
+   Raum nach Augenmass gefunden und war nach jedem Neuladen wieder weg. */
+(function merkerAnhaengen() {
+  Merk.feld("#micModus");
+  Merk.feld("#micEmp");
+  Merk.feld("#rueckfall");
+  Merk.feld("#stFarbe1");
+  Merk.feld("#stFarbe2");
+  Merk.feld("#stEin");
+  Merk.feld("#stHub");
+  Merk.feld("#stTakt");
+  Merk.feld("#stVor");
+  Merk.feld("#stModus");
+  Merk.feld("#hwB1");
+  Merk.feld("#hwB2");
+  Merk.feld("#hwTempo");
+  if ($("#hwTempoText")) $("#hwTempoText").textContent = $("#hwTempo").value;
+
+  // Die Anzeigen neben den Schiebern stehen sonst auf dem HTML-Vorgabewert,
+  // waehrend der Schieber schon woanders steht.
+  if ($("#stHubText")) $("#stHubText").textContent = $("#stHub").value;
+  if ($("#stVorText")) $("#stVorText").textContent = $("#stVor").value;
+  if ($("#stModus").onchange) $("#stModus").onchange();
+
+  if (micModusAktiv) {
+    $("#micGemerkt").textContent = " · gemerkt: Modus " + micModusAktiv;
+  }
+})();
 
 /* --- Selbstpruefung: sagt beim Laden, was geht und was nicht ---------------
    Ohne das sieht eine Seite, an der irgendetwas fehlt, genauso aus wie eine,
