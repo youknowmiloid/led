@@ -11,7 +11,7 @@
 
    WICHTIG beim Aendern: FASSUNG hochzaehlen.                                   */
 
-const FASSUNG = "v9";
+const FASSUNG = "v10";
 const SPEICHER = "miloid-led-" + FASSUNG;
 
 const DATEIEN = [

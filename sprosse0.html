@@ -146,9 +146,10 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
   <legend>4b · Band hört selbst (Mikrofon im Band)</legend>
   <p class="hinweis">Das Band hat ein eigenes Mikrofon. Einmal hier eingeschaltet,
   läuft das Strobo <b>in der Hardware</b> weiter — Handy sperren, weglegen, Seite
-  zumachen, egal. Dafür bestimmt das Band selbst, was es macht; Farbe und Härte
-  kannst du nicht vorgeben. <b>Gemessen am 01.10.:</b> Modi 0–7 reagieren, Strobo
-  war clean.</p>
+  zumachen, egal. <b>Gemessen am 01.10. um 23:20 (4d, Stufe 3):</b> wird die Farbe
+  <b>vor</b> dem Modus geschickt, strobt das Band in <b>deiner</b> Farbe statt im
+  Regenbogen. Genau diese Reihenfolge schickt der Knopf unten: Empfindlichkeit →
+  Farbe → Modus. Modi 0–7 reagieren auf Musik, das Strobo war clean.</p>
   <div class="hinweis">Modus:
     <select id="micModus" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
       <option value="0">0</option><option value="1">1</option>
@@ -161,7 +162,13 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
            style="width:5em;background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
     <span id="micGemerkt" style="color:#888"></span>
   </div>
-  <button id="micAn">Mikro-Modus an (beide Bänder)</button>
+  <div class="hinweis">Deine Farbe — geht <b>vor</b> dem Modus raus:
+    &nbsp; Band 1 links: <input id="micFarbe1" type="color" value="#ff0000">
+    &nbsp; Band 2 rechts: <input id="micFarbe2" type="color" value="#ffffff">
+    &nbsp; <label><input id="micFarbeAn" type="checkbox" checked> eigene Farbe
+    statt Firmware-Palette</label>
+  </div>
+  <button id="micAn">Abendstart: Farbe + Mikro-Modus an (beide Bänder)</button>
   <button id="micAus">zurück auf Farbe</button>
   <div class="urteil grau" id="micUrteil">Noch nicht geschaltet.</div>
   <p class="hinweis"><b>Der gewählte Modus wird gemerkt</b> — auch über das Sperren
@@ -345,7 +352,7 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
   <div class="urteil grau" id="sperrUrteil">Noch nicht getestet.</div>
 </fieldset>
 
-<pre id="log">FASSUNG v9 — Modus wird gemerkt, Empfindlichkeits-Leiter in 4e, Farb-Leiter in 4d.
+<pre id="log">FASSUNG v10 — 4d Stufe 3 hat gewonnen: Farbe vor dem Modus, Abendstart in 4b.
 Steht hier NICHT v9, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
 </pre>
 <script src="dauerhaft.js"></script>
@@ -1094,7 +1101,14 @@ async function micSchalten(an) {
   s = Math.max(0, Math.min(100, s));
   const schlecht = [];
   let gut = 0;
-  for (const b of aktiv) {
+  /* Ueber den Index laufen, nicht ueber `aktiv`: die Farbe haengt an der Seite
+     im Raum (Band 1 links, Band 2 rechts). Mit der gefilterten Liste bekaeme
+     Band 2 die Farbe von Band 1, sobald Band 1 gerade nicht verbunden ist. */
+  const farbeAn = $("#micFarbeAn").checked;
+  const farbFeld = ["#micFarbe1", "#micFarbe2"];
+  for (let n = 0; n < baender.length; n++) {
+    const b = baender[n];
+    if (!b || !b.merkmal) continue;
     try {
       if (an) {
         /* NUR der am Geraet bestaetigte Weg. Erste Fassung schickte hier
@@ -1112,6 +1126,17 @@ async function micSchalten(an) {
            nicht den Abend. Sagt die Leiter, welches Register greift, wird hier
            genau eines nachgezogen. */
         await sende(b, cmdMicEmp(s));
+        /* Der Fund vom 01.10., 23:20, an MILOIDs Band gemessen (4d, Stufe 3):
+           Farbe VORHER, dann Modus -> das Firmware-Strobo laeuft in UNSERER
+           Farbe. Stufe 2, dieselbe Farbe danach geschickt, war bunt. Die
+           Reihenfolge ist also der ganze Trick. Sie steht ab v10 im Bedienweg
+           und nicht mehr nur im Test, denn genau das ist das Ziel: Musik-Sync
+           aus dem Chip, Farbe von uns, Handy gesperrt. Der Haken `micFarbeAn`
+           schaltet es ab, falls ein anderer Modus anders reagiert. */
+        if (farbeAn) {
+          const [fr, fg, fb] = hexRgb($(farbFeld[n] || farbFeld[0]).value);
+          await sende(b, cmdFarbe(...korr(fr, fg, fb)));
+        }
         await sende(b, cmdMic(m));
       } else {
         await sende(b, cmdFarbe(...korr(255, 160, 50)));
@@ -1134,9 +1159,13 @@ async function micSchalten(an) {
   } else if (an) {
     u.className = "urteil gut";
     u.textContent = gut + " von " + aktiv.length + " Bändern auf Mikro-Modus "
-      + m + ", Empfindlichkeit " + s + ". Läuft jetzt in der Hardware — "
+      + m + ", Empfindlichkeit " + s
+      + (farbeAn ? ", Farbe vorher: " + $("#micFarbe1").value + " / "
+          + $("#micFarbe2").value : ", ohne eigene Farbe")
+      + ". Läuft jetzt in der Hardware — "
       + "Handy darf gesperrt werden. Sieh nach, ob das Strobo weiterläuft.";
-    log("Mikro-Modus " + m + " (Empf. " + s + ") an " + gut + " Band/Bänder");
+    log("Mikro-Modus " + m + " (Empf. " + s + ") an " + gut + " Band/Bänder"
+        + (farbeAn ? ", Farbe vorher geschickt" : ""));
   } else {
     u.className = "urteil grau";
     u.textContent = "Zurück auf feste Farbe (" + gut + " von " + aktiv.length + ").";
@@ -1953,6 +1982,9 @@ $("#kopieren").onclick = async () => {
 (function merkerAnhaengen() {
   Merk.feld("#micModus");
   Merk.feld("#micEmp");
+  Merk.feld("#micFarbe1");
+  Merk.feld("#micFarbe2");
+  Merk.feld("#micFarbeAn");
   Merk.feld("#rueckfall");
   Merk.feld("#stFarbe1");
   Merk.feld("#stFarbe2");
