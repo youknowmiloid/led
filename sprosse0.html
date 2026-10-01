@@ -196,6 +196,14 @@ let mikroKuehlBis = 0, mikroFehlVersuche = 0;
 let mikroTotTicks = 0, mikroLebtTicks = 0, mikroDbMin = 999, mikroDbMax = -999;
 const STILLE_GRENZE = 90;   // ~1,5 s lauter exakter Nullen heisst tot, nicht leise
 let laeuft = false;
+
+/* Herzschlag des Pegels. Am 01.10. stand am PC nur "keine Meldung", und das
+   heisst eben nur "der Waechter musste nicht anschlagen" — nicht "der Pegel
+   ist echt". MILOID musste deshalb auf den Bildschirm schauen. Min UND Max,
+   weil erst die Schwankung echten Ton beweist: ein fester Wert kann auch ein
+   eingefrorener Puffer sein. */
+const HERZ_TAKT = 30000;
+let herzStand = 0, herzMin = 999, herzMax = -999, herzLebt = 0, herzTot = 0;
 let abbruch = null;      // Grund, warum eine laufende Messung aufhoeren muss
 
 const $ = (s) => document.querySelector(s);
@@ -545,6 +553,36 @@ function pegelSchleife() {
     mikroLebtTicks++;
     if (db < mikroDbMin) mikroDbMin = db;
     if (db > mikroDbMax) mikroDbMax = db;
+  }
+
+  // Herzschlag sammeln und alle 30 s eine Zeile ins Log, damit der Pegel auch
+  // am PC sichtbar ist. Waehrend einer Messung wird gesammelt, aber nicht
+  // geschrieben: ein Log-Eintrag mitten im Takt verfaelscht genau das, was
+  // gemessen wird. Die Zeile kommt dann unmittelbar nach der Messung.
+  if (rms === 0) herzTot++;
+  else {
+    herzLebt++;
+    if (db < herzMin) herzMin = db;
+    if (db > herzMax) herzMax = db;
+  }
+  const herzJetzt = performance.now();
+  if (herzStand === 0) {
+    // Beim allerersten Tick nur die Uhr stellen. Ohne diesen Zweig zaehlt die
+    // erste Spanne ab Seitenladen statt ab Mikrofonstart, der erste Block
+    // verfaellt ungeschrieben, und die erste Zeile kaeme erst nach 60 s statt
+    // nach 30. Im Pruefstand genau so gemessen (0 von 3), nicht vermutet.
+    herzStand = herzJetzt;
+  } else if (!laeuft && herzJetzt - herzStand >= HERZ_TAKT) {
+    const spanne = Math.round((herzJetzt - herzStand) / 1000);
+    if (herzLebt > 0) {
+      log("Pegel lebt: " + herzMin.toFixed(1) + " bis " + herzMax.toFixed(1)
+          + " dB über " + spanne + " s"
+          + (herzTot ? " (" + herzTot + " stille Ticks dazwischen)" : ""));
+    } else {
+      log("PEGEL TOT: " + spanne + " s lang ausschließlich exakte Nullen.");
+    }
+    herzStand = herzJetzt;
+    herzMin = 999; herzMax = -999; herzLebt = 0; herzTot = 0;
   }
 
   $("#pegelBalken").style.width = Math.max(0, Math.min(100, (db + 60) / 60 * 100)) + "%";
