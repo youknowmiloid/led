@@ -143,6 +143,29 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
 </fieldset>
 
 <fieldset>
+  <legend>4b · Band hört selbst (Mikrofon im Band)</legend>
+  <p class="hinweis">Das Band hat ein eigenes Mikrofon. Einmal hier eingeschaltet,
+  läuft das Strobo <b>in der Hardware</b> weiter — Handy sperren, weglegen, Seite
+  zumachen, egal. Dafür bestimmt das Band selbst, was es macht; Farbe und Härte
+  kannst du nicht vorgeben. <b>Gemessen am 01.10.:</b> Modi 0–7 reagieren, Strobo
+  war clean.</p>
+  <div class="hinweis">Modus:
+    <select id="micModus" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
+      <option value="0">0</option><option value="1">1</option>
+      <option value="2">2</option><option value="3">3</option>
+      <option value="4">4</option><option value="5">5</option>
+      <option value="6">6</option><option value="7">7</option>
+    </select>
+    &nbsp; Empfindlichkeit:
+    <input id="micEmp" type="number" min="0" max="255" value="80"
+           style="width:5em;background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
+  </div>
+  <button id="micAn">Mikro-Modus an (beide Bänder)</button>
+  <button id="micAus">zurück auf Farbe</button>
+  <div class="urteil grau" id="micUrteil">Noch nicht geschaltet.</div>
+</fieldset>
+
+<fieldset>
   <legend>5 · Sperrtest — was passiert, wenn du das Handy weglegst</legend>
   <p class="hinweis">Apple hält JavaScript an, sobald die App in den Hintergrund
   geht. Dieser Test misst, <b>was das konkret kostet</b>: wie viele Befehle in
@@ -152,6 +175,7 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
   <button id="wach">Bildschirm wachhalten (Wake Lock)</button>
   <div class="hinweis">Rückfall beim Sperren:
     <select id="rueckfall" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
+      <option value="mic:0">Band hört selbst weiter (Mikro-Modus 0)</option>
       <option value="0x95">Band läuft im 7-Farb-Strobo weiter</option>
       <option value="0x9C">Band läuft im Weiß-Strobo weiter</option>
       <option value="0x89">Band läuft im weichen Verlauf weiter</option>
@@ -254,7 +278,18 @@ const cmdHell  = (p)       => rahmen(0x00, 0x01, p, 0, 0, 0, 0);
 // Eingebauter Controller-Modus. Der laeuft in der HARDWARE weiter, auch ohne
 // Handy und ohne Verbindung - der einzige Weg, dass bei gesperrtem Handy noch
 // etwas passiert.
-const cmdModus = (m)       => rahmen(0x00, 0x03, m, 0x03, 0, 0, 0);
+const cmdModus = (m)       => rahmen(0x00, 0x03, m, 0x03, 0x00, 0x00, 0x00);
+// MIKROFON IM BAND (gemessen 01.10.2026, MILOID hat "clean" bestaetigt).
+// Gleiche Befehlsnummer 0x03 wie die Animationen, aber Sub-Byte 0x04 statt
+// 0x03 - DAS ist der Unterschied, nicht der Modusbyte. Modus 0..7 wird als
+// 0x80|m geschickt. Laeuft wie die Animationen in der HARDWARE: einmal
+// gesetzt, hoert das Band allein weiter, auch bei gesperrtem oder
+// weggelegtem Handy.
+// Variante A (Lotus-Lantern-Rahmen 7E 04 07 ...) NICHT verwenden - wirft die
+// Verbindung reproduzierbar ab, dreimal gemessen (18.09., 19.09., 01.10.),
+// jedes Mal bei EQ-Modus 1.
+const cmdMic    = (m) => rahmen(0x00, 0x03, 0x80 | m, 0x04, 0x00, 0x00, 0x00);
+const cmdMicEmp = (s) => rahmen(0x00, 0x07, s, 0x00, 0x00, 0x00, 0x00);
 const korr = (r, g, b) => [Math.round(r*KORR.r), Math.round(g*KORR.g), Math.round(b*KORR.b)];
 
 // Bluefy (WKWebView) liefert BluetoothDevice.id NICHT. Jedes blinde
@@ -738,9 +773,66 @@ Dauerhaft.start({
   baender: () => baender,
   get rueckfall() {
     const v = $("#rueckfall").value;
-    return v ? cmdModus(parseInt(v, 16)) : null;
+    if (!v) return null;
+    // Mikro-Modus braucht den anderen Rahmen (Sub-Byte 04), nicht cmdModus.
+    // Die Empfindlichkeit wird hier NICHT mitgeschickt: im Hintergrund bleiben
+    // nur Millisekunden, ein zweiter Schreibvorgang kommt dort oft nicht mehr
+    // durch. Sie steht im Controller noch von "Mikro-Modus an".
+    if (v.indexOf("mic:") === 0) return cmdMic(parseInt(v.slice(4), 10));
+    return cmdModus(parseInt(v, 16));
   }
 });
+
+// --- Mikrofon im Band: einmal schalten, dann laeuft es ohne Handy weiter ----
+// Empfindlichkeit MUSS vor dem Modus raus - so war es im Messlauf am 01.10.,
+// der clean war (B_emp(80) vor B_mic(m)). Beide mit Quittung ueber sende(),
+// weil Einstellbefehle ohne Quittung nachweislich verloren gehen.
+async function micSchalten(an) {
+  const aktiv = baender.filter((b) => b && b.merkmal);
+  const u = $("#micUrteil");
+  if (!aktiv.length) {
+    u.className = "urteil fehler";
+    u.textContent = "Kein Band verbunden — erst oben verbinden.";
+    return;
+  }
+  const m = parseInt($("#micModus").value, 10);
+  let s = parseInt($("#micEmp").value, 10);
+  if (!isFinite(s)) s = 80;
+  s = Math.max(0, Math.min(255, s));
+  const schlecht = [];
+  let gut = 0;
+  for (const b of aktiv) {
+    try {
+      if (an) {
+        await sende(b, cmdMicEmp(s));
+        await sende(b, cmdMic(m));
+      } else {
+        await sende(b, cmdFarbe(...korr(255, 160, 50)));
+      }
+      gut++;
+    } catch (e) {
+      schlecht.push(fehlertext(e));
+    }
+  }
+  if (!gut) {
+    u.className = "urteil fehler";
+    u.textContent = "Nichts angekommen: " + schlecht.join(" / ");
+  } else if (an) {
+    u.className = "urteil gut";
+    u.textContent = gut + " von " + aktiv.length + " Bändern auf Mikro-Modus "
+      + m + ", Empfindlichkeit " + s + ". Läuft jetzt in der Hardware — "
+      + "Handy darf gesperrt werden. Sieh nach, ob das Strobo weiterläuft.";
+    log("Mikro-Modus " + m + " (Empf. " + s + ") an " + gut + " Band/Bänder");
+  } else {
+    u.className = "urteil grau";
+    u.textContent = "Zurück auf feste Farbe (" + gut + " von " + aktiv.length + ").";
+    log("Mikro-Modus beendet, zurück auf Farbe");
+  }
+  if (schlecht.length) log("Mikro-Modus Fehler: " + schlecht.join(" / "));
+}
+
+$("#micAn").onclick  = () => micSchalten(true);
+$("#micAus").onclick = () => micSchalten(false);
 
 $("#wach").onclick = async () => {
   const ok = await Dauerhaft.wachAn();
