@@ -166,6 +166,43 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
 </fieldset>
 
 <fieldset>
+  <legend>4c · Unser Strobo (unsere Farbe, Takt von der Musik)</legend>
+  <p class="hinweis">Das ist <b>nicht</b> das Mikrofon im Band, sondern unser
+  eigener Effekt: das <b>Handy</b> hört zu und schickt die Farbe. Braucht
+  Abschnitt 2 (Mikrofon an) und einen <b>wachen Bildschirm</b> — gesperrt hält
+  iOS JavaScript an, dann passiert nichts. Gemessene Decke der Funkstrecke:
+  <b>rund 3 Blitze pro Sekunde</b>, also ein Blitz pro Beat bis ~180 BPM.
+  Schnelleres kann nur das Band selbst (4b), dafür ohne Farbwahl.</p>
+  <div class="hinweis">
+    Grundglimmen: <input id="stFarbe1" type="color" value="#ff0000">
+    &nbsp; Blitz: <input id="stFarbe2" type="color" value="#ffffff">
+    &nbsp; <label><input id="stEin" type="checkbox"> einfarbig (Blitz = dieselbe Farbe, nur hell)</label>
+  </div>
+  <div class="hinweis">Auslöser:
+    <input id="stHub" type="range" min="1" max="12" value="5" style="vertical-align:middle">
+    <span id="stHubText">5 dB über dem Schnitt</span> — kleiner = blitzt öfter
+  </div>
+  <button id="stAn">Strobo an</button>
+  <button id="stAus">Strobo aus</button>
+  <div class="urteil grau" id="stUrteil">Noch nicht gestartet.</div>
+</fieldset>
+
+<fieldset>
+  <legend>4d · Greift Farbe WÄHREND des Mikro-Modus? (Test)</legend>
+  <p class="hinweis">Die eine offene Frage: wenn ein Farbbefehl im Mikro-Modus
+  greift, bekommst du das schnelle Strobo aus dem Chip <b>in unserer Farbe</b>,
+  bei gesperrtem Handy — das wäre die beste aller Fassungen. Jeder Knopf ändert
+  <b>genau eine</b> Sache. Der Reihe nach drücken und nach jedem hinsehen.</p>
+  <button id="t1">1 · Mikro-Modus 0 an</button>
+  <button id="t2">2 · nur Farbe rot</button>
+  <button id="t3">3 · nur Helligkeit 30</button>
+  <button id="t4">4 · nur Tempo 20</button>
+  <div class="urteil grau" id="tUrteil">Noch nichts getestet.</div>
+  <p class="hinweis">Nach jedem Knopf zwei Dinge ansehen: <b>strobt es noch</b>,
+  und <b>welche Farbe</b>? Vier kurze Antworten reichen mir.</p>
+</fieldset>
+
+<fieldset>
   <legend>5 · Sperrtest — was passiert, wenn du das Handy weglegst</legend>
   <p class="hinweis">Apple hält JavaScript an, sobald die App in den Hintergrund
   geht. Dieser Test misst, <b>was das konkret kostet</b>: wie viele Befehle in
@@ -220,6 +257,9 @@ let mikroKuehlBis = 0, mikroFehlVersuche = 0;
 let mikroTotTicks = 0, mikroLebtTicks = 0, mikroDbMin = 999, mikroDbMax = -999;
 const STILLE_GRENZE = 90;   // ~1,5 s lauter exakter Nullen heisst tot, nicht leise
 let laeuft = false;
+// Laeuft unser eigenes Strobo (Abschnitt 4c)? Muss hier oben stehen, weil der
+// 5-Sekunden-Melder weiter unten darauf prueft und sonst in die TDZ laufen kann.
+let stroboAn = false;
 
 /* Herzschlag des Pegels. Am 01.10. stand am PC nur "keine Meldung", und das
    heisst eben nur "der Waechter musste nicht anschlagen" — nicht "der Pegel
@@ -257,7 +297,7 @@ let zuletztGemeldet = "";
 setInterval(function () {
   // Waehrend einer laufenden Messung nichts senden: ein HTTP-Aufruf in der
   // Ereignisschleife wuerde genau den Takt stoeren, der hier gemessen wird.
-  if (laeuft) return;
+  if (laeuft || stroboAn) return;
   const jetzt = logEl.textContent;
   if (jetzt !== zuletztGemeldet) {
     zuletztGemeldet = jetzt;
@@ -635,6 +675,7 @@ function p(werte, anteil) {
 
 document.querySelectorAll("[data-takt]").forEach(b => b.onclick = async () => {
   if (laeuft) { log("Läuft schon."); return; }
+  if (stroboAn) { log("Erst das Strobo (4c) ausschalten — sonst misst das den eigenen Takt mit."); return; }
   if (!baender[0] || !baender[1]) {
     log("Es müssen BEIDE Bänder verbunden sein — sonst misst das nichts.");
     return;
@@ -833,6 +874,152 @@ async function micSchalten(an) {
 
 $("#micAn").onclick  = () => micSchalten(true);
 $("#micAus").onclick = () => micSchalten(false);
+
+/* --- 4c: unser eigenes Strobo --------------------------------------------
+   Pegelgesteuert wie die Bandmodi 0/1, aber die Farbe kommt von uns.
+   Absichtlich KEIN BPM-Erkenner: der Blitz haengt am Pegelsprung ueber dem
+   gleitenden Schnitt. Genau das Verhalten, das MILOID an Modus 0/1 gefallen
+   hat - und es braucht keine Taktverfolgung, die bei 3 Befehlen pro Sekunde
+   ohnehin nicht sauber laufen koennte.
+   ST_TAKT 165 ms ist gemessen (01.10.: 0 von 121 Ticks zu spaet, 100 %
+   angekommen). NICHT kleiner setzen - unter ~150 ms verschluckt die Funkstrecke
+   Blitze, die Decke liegt bei 3 Blitzen/s (am PC mit Kamera gemessen).
+   Pro Tick geht genau EIN Befehl raus. Damit ist die schnellste moegliche
+   Blitzfolge jeder zweite Tick = 3/s, also exakt die gemessene Decke. */
+const ST_TAKT = 165;
+let stTimer = null, stMittel = null, stImBlitz = false, stBlitze = 0, stTicks = 0;
+
+function hexRgb(h) {
+  return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+}
+/* Farbe an beide Baender, Band 2 um VERSATZ versetzt: zwei gleichzeitige
+   Schreibvorgaenge stauen die Funkstrecke nachweislich auf 408-710 ms.
+   Uebersprungene Befehle werden NICHT nachgeholt (siehe sende()) - beim Strobo
+   zaehlt nur der neueste Zustand. */
+function stFarbe(rgb) {
+  const daten = cmdFarbe(...korr(rgb[0], rgb[1], rgb[2]));
+  const aktiv = baender.filter((b) => b && b.merkmal);
+  if (aktiv[0]) sende(aktiv[0], daten).catch(() => {});
+  if (aktiv[1]) setTimeout(() => sende(aktiv[1], daten).catch(() => {}), VERSATZ);
+}
+/* Grundglimmen statt Schwarz: ein dunkles Band sieht aus wie ein Defekt.
+   Faktor 0.25 haelt die Grundfarbe 4x unter dem Blitz - die Leuchtdichte-Regel
+   aus dem PC-Projekt verlangt mindestens 2x. */
+const stGrund = (rgb) => rgb.map((v) => Math.round(v * 0.25));
+
+function stroboTick() {
+  if (!mikroAn || !analyse || !mikroDaten) {
+    stroboStop("Mikrofon ist aus — Abschnitt 2 einschalten.");
+    return;
+  }
+  analyse.getFloatTimeDomainData(mikroDaten);
+  let summe = 0;
+  for (let i = 0; i < mikroDaten.length; i++) summe += mikroDaten[i] * mikroDaten[i];
+  const rms = Math.sqrt(summe / mikroDaten.length);
+  const db = 20 * Math.log10(rms + 1e-9);
+  stTicks++;
+
+  /* Gleitenden Schnitt beim ersten Tick gleichsetzen statt bei 0 anfangen -
+     sonst zieht er vom Boden hoch und die erste Sekunde blitzt durchgehend. */
+  if (stMittel === null) stMittel = db;
+  else stMittel = stMittel * 0.85 + db * 0.15;
+
+  const hub = parseInt($("#stHub").value, 10);
+  const f1 = hexRgb($("#stFarbe1").value);
+  const f2 = $("#stEin").checked ? f1 : hexRgb($("#stFarbe2").value);
+  /* rms > 0 ist Pflicht: bei totem Mikrofon steht db auf -180, der Schnitt
+     zieht mit, und die Differenz koennte sonst einen Blitz ausloesen - das
+     Band wuerde im Takt blitzen, obwohl gar kein Ton ankommt. */
+  const schlag = rms > 0 && (db - stMittel) >= hub;
+
+  if (schlag && !stImBlitz) { stImBlitz = true; stBlitze++; stFarbe(f2); }
+  else if (stImBlitz)       { stImBlitz = false; stFarbe(stGrund(f1)); }
+  // sonst nichts senden: das Band haelt das Grundglimmen von selbst, und jeder
+  // gesparte Befehl ist Luft fuer den naechsten Blitz.
+
+  $("#stUrteil").className = "urteil gut";
+  $("#stUrteil").textContent = stBlitze + " Blitze · Pegel " + db.toFixed(0)
+    + " dB, Schnitt " + stMittel.toFixed(0) + " dB · Auslöser ab +" + hub + " dB";
+}
+
+function stroboStop(grund) {
+  if (stTimer) { clearInterval(stTimer); stTimer = null; }
+  stroboAn = false;
+  if (grund) {
+    $("#stUrteil").className = "urteil fehler";
+    $("#stUrteil").textContent = grund;
+    log("Strobo aus: " + grund);
+  }
+}
+
+$("#stAn").onclick = () => {
+  if (laeuft)   { log("Erst die Messung fertig laufen lassen."); return; }
+  if (stroboAn) { log("Strobo läuft schon."); return; }
+  const u = $("#stUrteil");
+  if (!baender.some((b) => b && b.merkmal)) {
+    u.className = "urteil fehler";
+    u.textContent = "Kein Band verbunden — erst oben verbinden.";
+    return;
+  }
+  if (!mikroAn) {
+    u.className = "urteil fehler";
+    u.textContent = "Mikrofon ist aus — erst Abschnitt 2 einschalten.";
+    return;
+  }
+  stMittel = null; stImBlitz = false; stBlitze = 0; stTicks = 0;
+  stroboAn = true;
+  stFarbe(stGrund(hexRgb($("#stFarbe1").value)));
+  stTimer = setInterval(stroboTick, ST_TAKT);
+  log("Unser Strobo an, Takt " + ST_TAKT + " ms, Auslöser +" + $("#stHub").value + " dB");
+};
+$("#stAus").onclick = () => {
+  if (!stroboAn) return;
+  stroboStop(null);
+  stFarbe(stGrund(hexRgb($("#stFarbe1").value)));
+  $("#stUrteil").className = "urteil grau";
+  $("#stUrteil").textContent = "Aus. " + stBlitze + " Blitze in " + stTicks + " Ticks.";
+  log("Unser Strobo aus nach " + stBlitze + " Blitzen.");
+};
+$("#stHub").oninput = () => {
+  $("#stHubText").textContent = $("#stHub").value + " dB über dem Schnitt";
+};
+
+/* --- 4d: greift Farbe/Helligkeit/Tempo im Mikro-Modus? -------------------
+   Leiter mit genau EINER Veraenderung pro Stufe. Lehre vom 19.09.: eine
+   Leiter, die zwei Dinge gleichzeitig dreht, kann die Ursache nicht benennen.
+   Darum vier Knoepfe statt eines Automatiklaufs - MILOID sieht nach jedem
+   Knopf hin, und jede Antwort gehoert eindeutig zu genau einem Befehl.
+   Einstellbefehle gehen sequentiell mit await raus, wie in micSchalten(). */
+const cmdTempo = (p) => rahmen(0x00, 0x02, p, 0, 0, 0, 0);
+
+async function testStufe(name, folge) {
+  const aktiv = baender.filter((b) => b && b.merkmal);
+  const u = $("#tUrteil");
+  if (!aktiv.length) {
+    u.className = "urteil fehler";
+    u.textContent = "Kein Band verbunden — erst oben verbinden.";
+    return;
+  }
+  const schlecht = [];
+  let gut = 0;
+  for (const b of aktiv) {
+    try {
+      for (const daten of folge) await sende(b, daten);
+      gut++;
+    } catch (e) { schlecht.push(fehlertext(e)); }
+  }
+  u.className = gut ? "urteil gut" : "urteil fehler";
+  u.textContent = name + " → an " + gut + " von " + aktiv.length + " Bändern raus."
+    + (schlecht.length ? " Fehler: " + schlecht.join(" / ") : "")
+    + " — jetzt hinsehen: strobt es noch, und welche Farbe?";
+  log("Test " + name + ": " + gut + "/" + aktiv.length
+      + (schlecht.length ? " — " + schlecht.join(" / ") : ""));
+}
+
+$("#t1").onclick = () => testStufe("1 Mikro-Modus 0 an", [cmdMicEmp(80), cmdMic(0)]);
+$("#t2").onclick = () => testStufe("2 nur Farbe rot",    [cmdFarbe(...korr(255, 0, 0))]);
+$("#t3").onclick = () => testStufe("3 nur Helligkeit 30", [cmdHell(30)]);
+$("#t4").onclick = () => testStufe("4 nur Tempo 20",      [cmdTempo(20)]);
 
 $("#wach").onclick = async () => {
   const ok = await Dauerhaft.wachAn();
