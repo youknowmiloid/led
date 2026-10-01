@@ -188,6 +188,13 @@ const FENSTER = 20;     // ms: so weit darf ein Tick spaet sein, dann ist er ver
 const baender = [null, null];   // {geraet, merkmal}
 const laeufe = [];
 let mikroAn = false, analyse = null, mikroDaten = null, mikroTicks = 0;
+// Bezuege auf den Audio-Graphen. Sie stehen absichtlich hier oben und nicht
+// im Klick-Handler — die Begruendung steht im Kopf von mikroAufbauen().
+let mikroCtx = null, mikroQuelle = null, mikroStrom = null, mikroSenke = null;
+let stilleFolge = 0, mikroNeuaufbauten = 0, mikroGrund = "", mikroNeustartLaeuft = false;
+let mikroKuehlBis = 0, mikroFehlVersuche = 0;
+let mikroTotTicks = 0, mikroLebtTicks = 0, mikroDbMin = 999, mikroDbMax = -999;
+const STILLE_GRENZE = 90;   // ~1,5 s lauter exakter Nullen heisst tot, nicht leise
 let laeuft = false;
 let abbruch = null;      // Grund, warum eine laufende Messung aufhoeren muss
 
@@ -367,10 +374,118 @@ $("#anAus").onclick = async () => {
   log("Sichtprobe: leuchten beide rot?");
 };
 
-// --- Mikrofon. Zweck: laeuft es ueberhaupt, und bremst es die Bandbefehle? ---
+/* --- Mikrofon ------------------------------------------------------------
+   WARUM DER GRAPH FESTGEHALTEN WIRD
+   ---------------------------------
+   Am 01.10.2026 ist das Mikrofon am iPhone nach ein paar tausend Durchlaeufen
+   auf exakt -180.0 dB gefallen und nicht mehr zurueckgekommen. -180,0 ist
+   kein Pegel, sondern der Boden der eigenen Formel: 20*log10(0 + 1e-9) ergibt
+   genau -180. Der Analysator bekam also lupenreine Nullen, nicht leise Musik.
+
+   Die alte Fassung schrieb `const ctx = ...` und
+   `ctx.createMediaStreamSource(strom).connect(analyse)`. Zusammenhang,
+   Quellknoten und Medienstrom lagen damit nur in lokalen Konstanten, die der
+   Klick-Handler beim Verlassen aufgibt; einzig `analyse` war global und
+   ueberlebte. Genau diese Lage raeumt WebKit auf: der Quellknoten wird
+   eingesammelt, der Analysator bleibt stehen und liefert ab da Stille. Das
+   erklaert beides — warum es erst nach Minuten auftritt und warum es sich nie
+   von selbst erholt.
+
+   Drei Massnahmen, nicht eine. Welche gegriffen hat, sagt der Log beim
+   naechsten Lauf; eine einzelne Vermutung waere wieder eine Testrunde:
+     1. Alle vier Knoten stehen global und koennen nicht eingesammelt werden.
+     2. Eine stumme Senke zum Ausgang — WebKit zieht einen Graphen ohne Weg
+        zum Lautsprecher nicht zuverlaessig weiter.
+     3. Ein Waechter in der Pegelschleife baut neu auf, falls es trotzdem
+        still wird, egal aus welchem Grund.                                  */
+async function mikroAbbauen() {
+  try { if (mikroStrom) mikroStrom.getTracks().forEach(t => t.stop()); } catch (e) {}
+  try { if (mikroCtx) await mikroCtx.close(); } catch (e) {}
+  mikroStrom = null; mikroQuelle = null; mikroSenke = null; mikroCtx = null;
+}
+
+async function mikroAufbauen() {
+  await mikroAbbauen();
+  mikroStrom = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+  });
+  mikroCtx = new (window.AudioContext || window.webkitAudioContext)();
+  await mikroCtx.resume();
+  analyse = mikroCtx.createAnalyser();
+  analyse.fftSize = 1024;
+  mikroQuelle = mikroCtx.createMediaStreamSource(mikroStrom);
+  mikroQuelle.connect(analyse);
+  mikroSenke = mikroCtx.createGain();
+  mikroSenke.gain.value = 0;              // hoerbar nichts, aber ein Weg nach draussen
+  analyse.connect(mikroSenke);
+  mikroSenke.connect(mikroCtx.destination);
+  mikroDaten = new Float32Array(analyse.fftSize);
+  stilleFolge = 0;
+
+  // Meldet sich das System selbst ab, soll das im Log stehen statt im Nebel.
+  const spur = mikroStrom.getAudioTracks()[0];
+  if (spur) {
+    spur.onmute = () => { mikroGrund = "System hat die Spur stummgeschaltet (onmute)"; };
+    spur.onended = () => { mikroGrund = "System hat die Spur beendet (onended)"; };
+  }
+  mikroCtx.onstatechange = () => {
+    if (mikroCtx && mikroCtx.state !== "running") mikroGrund = "AudioContext: " + mikroCtx.state;
+  };
+  return mikroCtx.sampleRate;
+}
+
+async function mikroWiederbeleben() {
+  if (mikroNeustartLaeuft || !mikroAn) return;
+  /* Niemals waehrend einer laufenden Messung. getUserMedia ist teuer und
+     wuerde genau den Takt zerreissen, der hier gemessen wird — derselbe
+     Grund, aus dem die Rueckmeldung an den PC waehrend einer Messung
+     schweigt. Der Lauf zaehlt die toten Durchlaeufe trotzdem mit und sagt
+     danach ehrlich, dass er ohne Mikrofon lief. Aufgebaut wird hinterher. */
+  if (laeuft) return;
+  // Nach einem Neuaufbau ein paar Sekunden Ruhe, sonst jagt sich der
+  // Waechter selbst, bevor die erste Probe ueberhaupt da ist.
+  if (performance.now() < mikroKuehlBis) return;
+  /* Reissleine. Bringt der Neuaufbau sechsmal hintereinander keinen einzigen
+     Durchlauf mit echtem Ton, liegt es nicht am Graphen — dann hat das
+     System das Mikrofon entzogen. Weiterzujagen wuerde nur Strom kosten und
+     den Log zumuellen. */
+  if (mikroFehlVersuche >= 6) {
+    if (mikroFehlVersuche === 6) {
+      mikroFehlVersuche++;
+      log("MIKROFON GIBT ES NICHT MEHR HER: sechs Neuaufbauten hintereinander "
+          + "blieben still. Das ist keine Graph-Sache mehr, das System hat den "
+          + "Zugriff entzogen. App einmal ganz schliessen und neu oeffnen.");
+      $("#pm").className = "punkt fehler";
+      $("#tm").textContent = "Mikrofon vom System entzogen — App neu starten";
+    }
+    return;
+  }
+  mikroFehlVersuche++;
+  mikroNeustartLaeuft = true;
+  mikroNeuaufbauten++;
+  const grund = mikroGrund || "keine Meldung vom System — Graph eingeschlafen";
+  mikroGrund = "";
+  log("Mikrofon war " + (STILLE_GRENZE / 60).toFixed(1) + " s lang exakt still — baue neu auf ("
+      + mikroNeuaufbauten + ". Mal). Grund: " + grund);
+  try {
+    const rate = await mikroAufbauen();
+    mikroKuehlBis = performance.now() + 3000;
+    $("#tm").textContent = "Mikrofon läuft — " + (rate / 1000).toFixed(1) + " kHz · "
+                         + mikroNeuaufbauten + "× neu aufgebaut";
+    log("Mikrofon laeuft wieder, " + rate + " Hz.");
+  } catch (e) {
+    mikroAn = false;
+    $("#pm").className = "punkt fehler";
+    $("#tm").textContent = "Mikrofon kam nicht zurück: " + fehlertext(e);
+    log("MIKROFON KAM NICHT ZURUECK: " + fehlertext(e));
+  }
+  mikroNeustartLaeuft = false;
+}
+
 $("#mikro").onclick = async () => {
   if (mikroAn) {
     mikroAn = false;
+    await mikroAbbauen();
     $("#mikro").textContent = "Mikrofon einschalten";
     $("#pm").className = "punkt";
     $("#tm").textContent = "Mikrofon aus";
@@ -378,20 +493,13 @@ $("#mikro").onclick = async () => {
     return;
   }
   try {
-    const strom = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-    });
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    await ctx.resume();
-    analyse = ctx.createAnalyser();
-    analyse.fftSize = 1024;
-    ctx.createMediaStreamSource(strom).connect(analyse);
-    mikroDaten = new Float32Array(analyse.fftSize);
+    mikroNeuaufbauten = 0;
+    const rate = await mikroAufbauen();
     mikroAn = true;
     $("#mikro").textContent = "Mikrofon ausschalten";
     $("#pm").className = "punkt an";
-    $("#tm").textContent = "Mikrofon läuft — " + (ctx.sampleRate/1000).toFixed(1) + " kHz";
-    log("Mikrofon offen, " + ctx.sampleRate + " Hz. Bluefy gibt es frei.");
+    $("#tm").textContent = "Mikrofon läuft — " + (rate / 1000).toFixed(1) + " kHz";
+    log("Mikrofon offen, " + rate + " Hz. Bluefy gibt es frei.");
     pegelSchleife();
   } catch (e) {
     $("#pm").className = "punkt fehler";
@@ -400,16 +508,48 @@ $("#mikro").onclick = async () => {
   }
 };
 
+/* Zurueck aus dem Hintergrund. iOS haelt den Zusammenhang an, und die Spur
+   kommt gemessen nicht immer von selbst wieder. Ohne dieses Nachfassen laeuft
+   die Schleife weiter und misst stur Nullen — genau das Bild vom 01.10. */
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible" || !mikroAn) return;
+  if (mikroCtx && mikroCtx.state !== "running") mikroCtx.resume().catch(() => {});
+  const spur = mikroStrom && mikroStrom.getAudioTracks()[0];
+  if (!spur || spur.readyState !== "live" || spur.muted) {
+    mikroGrund = "nach Rueckkehr aus dem Hintergrund tot";
+    mikroWiederbeleben();
+  }
+});
+
 function pegelSchleife() {
   if (!mikroAn) { $("#pegelBalken").style.width = "0"; return; }
+  // Waehrend eines Neuaufbaus zeigt `analyse` kurz auf nichts Brauchbares.
+  if (!analyse || !mikroDaten) { requestAnimationFrame(pegelSchleife); return; }
   analyse.getFloatTimeDomainData(mikroDaten);
   let summe = 0;
   for (let i = 0; i < mikroDaten.length; i++) summe += mikroDaten[i] * mikroDaten[i];
   const rms = Math.sqrt(summe / mikroDaten.length);
   const db = 20 * Math.log10(rms + 1e-9);
   mikroTicks++;
+
+  /* Entscheidend ist `rms === 0`, nicht "db ist klein". Ein echter Raum
+     rauscht immer ein wenig, selbst nachts im leisen Zimmer. Lauter exakte
+     Nullen heissen deshalb nicht "leise", sondern "es kommt nichts mehr an". */
+  if (rms === 0) {
+    stilleFolge++;
+    mikroTotTicks++;
+    if (stilleFolge >= STILLE_GRENZE) mikroWiederbeleben();
+  } else {
+    stilleFolge = 0;
+    mikroFehlVersuche = 0;        // echter Ton da: die Reissleine wieder entspannen
+    mikroLebtTicks++;
+    if (db < mikroDbMin) mikroDbMin = db;
+    if (db > mikroDbMax) mikroDbMax = db;
+  }
+
   $("#pegelBalken").style.width = Math.max(0, Math.min(100, (db + 60) / 60 * 100)) + "%";
-  $("#pegelText").textContent = db.toFixed(1) + " dB   ·   " + mikroTicks + " Messungen";
+  $("#pegelText").textContent = db.toFixed(1) + " dB   ·   " + mikroTicks + " Messungen"
+    + (mikroNeuaufbauten ? "   ·   " + mikroNeuaufbauten + "× neu aufgebaut" : "");
   requestAnimationFrame(pegelSchleife);
 }
 
@@ -440,6 +580,8 @@ document.querySelectorAll("[data-takt]").forEach(b => b.onclick = async () => {
   const schreib = [[], []], versatz = [];
   let fehler = 0, verpasst = 0;
   const mikroVorher = mikroTicks;
+  const totVorher = mikroTotTicks, lebtVorher = mikroLebtTicks;
+  mikroDbMin = 999; mikroDbMax = -999;
   abbruch = null;
   baender.forEach(b => { if (b) { b.verworfen = 0; b.belegt = false; } });
   const t0 = performance.now();
@@ -477,6 +619,12 @@ document.querySelectorAll("[data-takt]").forEach(b => b.onclick = async () => {
   await new Promise(r => setTimeout(r, 500));   // letzte Antworten einsammeln
   const gelaufen = performance.now() - t0;
   const mikroWaehrend = mikroTicks - mikroVorher;
+  /* Wie oft die Schleife lief, sagt noch nicht, dass auch Ton ankam. Am
+     01.10. lief sie 3614 mal durch, waehrend das Mikrofon auf -180 dB stand —
+     der Lauf stand als "mit Mikrofon" im Urteil und war in Wahrheit ohne.
+     Deshalb zaehlt jetzt getrennt, wie viel davon echter Ton war. */
+  const mTot = mikroTotTicks - totVorher, mLebt = mikroLebtTicks - lebtVorher;
+  const mikroEcht = (mTot + mLebt) ? mLebt / (mTot + mLebt) : 0;
 
   // Beide Bänder aus.
   for (const bd of baender) {
@@ -505,12 +653,15 @@ document.querySelectorAll("[data-takt]").forEach(b => b.onclick = async () => {
 
   const zeile = {
     takt, mikro: mikroAn, ticks: gelaufeneTicks, v95, vmax, w95, fehler,
-    verpasst, verworfen, quoteDa, traegt, mikroWaehrend, gelaufen, abbruch
+    verpasst, verworfen, quoteDa, traegt, mikroWaehrend, gelaufen, abbruch,
+    mikroEcht
   };
   laeufe.push(zeile);
 
   const tr = document.createElement("tr");
-  tr.innerHTML = "<td>" + takt + " ms</td><td>" + (mikroAn ? "an" : "—") + "</td>"
+  tr.innerHTML = "<td>" + takt + " ms</td>"
+    + "<td style='color:" + (mikroAn && mikroEcht < 0.99 ? "#e44" : "inherit") + "'>"
+    + (mikroAn ? (mikroEcht >= 0.99 ? "an" : "TOT") : "—") + "</td>"
     + "<td>" + ticks + "</td><td>" + v95.toFixed(0) + " ms</td>"
     + "<td>" + w95.toFixed(0) + " ms</td>"
     + "<td style='color:" + (fehler ? "#e44" : "#3c3") + "'>" + fehler + "</td>";
@@ -526,7 +677,13 @@ document.querySelectorAll("[data-takt]").forEach(b => b.onclick = async () => {
     + v95.toFixed(0) + " ms (max " + vmax.toFixed(0) + "), Schreiben p95 "
     + w95.toFixed(0) + " ms, " + fehler + " Fehler, "
     + (quoteDa * 100).toFixed(0) + " % angekommen."
-    + (mikroAn ? "  Mikrofon lief dabei " + mikroWaehrend + " mal durch." : "")
+    + (!mikroAn ? ""
+       : mikroEcht >= 0.99
+         ? "  Mikrofon lief dabei durchgehend echt mit (" + mikroWaehrend
+           + " Durchläufe, " + mikroDbMin.toFixed(0) + " bis " + mikroDbMax.toFixed(0) + " dB)."
+         : "  ACHTUNG: das Mikrofon war " + ((1 - mikroEcht) * 100).toFixed(0)
+           + " % der Zeit tot (nur " + mLebt + " von " + (mTot + mLebt)
+           + " Durchläufen mit echtem Ton). Dieser Lauf zählt NICHT als Lauf mit Mikrofon.")
     + "  Jetzt mit dem Auge prüfen: blinken beide Bänder getrennt, oder verschmiert es?";
   log($("#urteil").textContent);
 
@@ -616,7 +773,8 @@ $("#kopieren").onclick = async () => {
   const txt = "SPROSSE 0 — " + new Date().toLocaleString() + "\n"
     + "Mikrofon: " + ($("#tm").textContent) + "\n\n"
     + laeufe.map(l =>
-        l.takt + " ms | Mikro " + (l.mikro ? "an " : "aus") + " | " + l.ticks + " Ticks | "
+        l.takt + " ms | Mikro "
+        + (l.mikro ? (l.mikroEcht >= 0.99 ? "an " : "TOT") : "aus") + " | " + l.ticks + " Ticks | "
         + "Versatz p95 " + l.v95.toFixed(0) + " ms, max " + l.vmax.toFixed(0) + " ms | "
         + "Schreiben p95 " + l.w95.toFixed(0) + " ms | "
         + l.verpasst + " zu spät | " + l.fehler + " Fehler | "
