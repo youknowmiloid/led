@@ -17,6 +17,28 @@
   button:active { background:#2a2a2a; }
   button.haupt { background:#e8342a; border-color:#e8342a; font-weight:600; }
   button:disabled { opacity:.4; }
+  /* Der eine Knopf, der im Dunkeln mit dem Daumen getroffen werden muss.
+     MILOID 01.10.: "ich brauche eine cleane UI, nicht so ein fragebogen style".
+     Darum oben nur Verbinden, zwei Farben, Modus, DIESER Knopf, Aus. */
+  button.gross { padding:28px 15px; font-size:20px; font-weight:700;
+                 letter-spacing:.02em; margin:10px 0 6px; }
+  .fassung { font-size:11px; color:#666; letter-spacing:.14em; margin:0 0 14px; }
+  fieldset.oben { border-color:#2e2e2e; }
+  fieldset.oben legend { color:#aaa; font-size:12px; }
+  /* Werkstatt: alles Messen, Leitern und Protokolle hinter einem Tipp.
+     ACHTUNG Pruefstaende: die Knoepfe darin sind bei geschlossenem <details>
+     fuer Playwright nicht klickbar. Die drei Prueflaeufe oeffnen alle
+     <details> per add_init_script, siehe DETAILS_AUF dort. */
+  details { border:1px solid #222; border-radius:10px; margin:14px 0; }
+  details > summary { padding:16px 12px; font-size:15px; color:#bbb;
+                      cursor:pointer; list-style:none; }
+  details > summary::-webkit-details-marker { display:none; }
+  details > summary::before { content:"▸ "; color:#666; }
+  details[open] > summary::before { content:"▾ "; }
+  details > summary b { color:#eee; }
+  details > .inhalt { padding:0 12px 4px; }
+  details.heute { border-color:#4a7; }
+  details.heute > summary { color:#6c9; }
   .reihe { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
   .reihe4 { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
   .reihe button, .reihe4 button { margin:0; }
@@ -37,6 +59,11 @@
   .urteil.ja   { background:#0f2a12; border:1px solid #2a6e30; color:#8ee89a; }
   .urteil.nein { background:#2c1010; border:1px solid #7a2a24; color:#f0908a; }
   .urteil.grau { background:#151515; border:1px solid #2a2a2a; color:#aaa; }
+  /* Das JS setzt an vielen Stellen "gut"/"fehler" statt "ja"/"nein". Dafuer
+     gab es keine Regel - die Urteile standen ohne Hintergrund da und waren im
+     Dunkeln kaum zu lesen. Gleiche Optik, damit jede Meldung Farbe hat. */
+  .urteil.gut    { background:#0f2a12; border:1px solid #2a6e30; color:#8ee89a; }
+  .urteil.fehler { background:#2c1010; border:1px solid #7a2a24; color:#f0908a; }
   pre { background:#111; border:1px solid #222; border-radius:8px; padding:10px;
         font-size:11.5px; max-height:200px; overflow:auto; white-space:pre-wrap; }
 </style>
@@ -79,9 +106,108 @@ window.__probleme = [];
 </script>
 
 <h1>SPROSSE 0</h1>
-<p class="unter">Vor jeder Zeile App-Code: schafft das iPhone <b>zwei</b> Bänder
-im Strobo-Takt, <b>während</b> das Mikrofon läuft? Wenn nein, trägt der ganze
-Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</p>
+<p class="fassung">FASSUNG v11 · MILOID LED</p>
+
+<fieldset class="oben">
+  <legend>Bänder</legend>
+  <div class="lampe"><span class="punkt" id="p1"></span><span id="t1">Band 1 — nicht verbunden</span></div>
+  <div class="lampe"><span class="punkt" id="p2"></span><span id="t2">Band 2 — nicht verbunden</span></div>
+  <div class="reihe">
+    <button class="haupt" id="verb1">Band 1 verbinden</button>
+    <button class="haupt" id="verb2">Band 2 verbinden</button>
+  </div>
+  <button id="anAus">beide an, auf Rot — Sichtprobe</button>
+</fieldset>
+
+<!-- ABENDSTART. Das ist der ganze Bedienteil fuer den Gig: zwei Farben, Modus,
+     ein Knopf. Die Begruendung der Reihenfolge, die hier frueher als Absatz in
+     der Seite stand, gehoert nicht in die Bedienung und steht jetzt hier:
+
+     Gemessen am 01.10. um 23:20 an MILOIDs Band (4d, Stufe 3): wird die Farbe
+     VOR dem Modus geschickt, strobt das Band in UNSERER Farbe statt im
+     Regenbogen. Dieselbe Farbe danach geschickt (Stufe 2) war bunt. Der Knopf
+     schickt deshalb: Empfindlichkeit -> Farbe -> Modus. Es laeuft danach in der
+     Hardware weiter, Handy darf gesperrt werden. Der Modus wird gemerkt, auch
+     ueber Sperren und Neuladen - der Rueckfall in Abschnitt 5 nimmt ihn. -->
+<fieldset class="oben">
+  <legend>Abendstart</legend>
+  <div class="hinweis">
+    Band 1 links: <input id="micFarbe1" type="color" value="#ff0000">
+    &nbsp;&nbsp; Band 2 rechts: <input id="micFarbe2" type="color" value="#ffffff">
+  </div>
+  <div class="hinweis">Modus:
+    <select id="micModus" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
+      <option value="0">0</option><option value="1">1</option>
+      <option value="2">2</option><option value="3">3</option>
+      <option value="4">4</option><option value="5">5</option>
+      <option value="6">6</option><option value="7">7</option>
+    </select>
+    &nbsp; Empfindlichkeit:
+    <input id="micEmp" type="number" min="0" max="100" value="50"
+           style="width:4em;background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
+    <span id="micGemerkt" style="color:#888"></span>
+  </div>
+  <button class="haupt gross" id="micAn">ABENDSTART</button>
+  <button id="micAus">aus — zurück auf feste Farbe</button>
+  <div class="urteil grau" id="micUrteil">Noch nicht geschaltet.</div>
+  <label class="hinweis" style="display:block;margin-top:10px">
+    <input id="micFarbeAn" type="checkbox" checked> eigene Farbe statt
+    Firmware-Palette</label>
+</fieldset>
+
+<!-- 4g: DIE Frage der Generalprobe. MILOID 01.10., 23:45: "bei 7 ist zwar
+     strobo in der gewuenschten farbe aber alles nicht wirklich music sync, also
+     laeuft ohne pause nicht auf den beat".
+
+     Stand der Dinge: beim EINEN Durchlauf, der funktioniert hat, hatte er
+     vorher 4d Stufe 1 gedrueckt - und die schickt zwei Dinge, die der
+     Abendstart NICHT schickt: das Mikrofon-Bit 7E 04 07 01 und die
+     Empfindlichkeit im neuen Register 7E 04 06. Welches der beiden das Hoeren
+     einschaltet, ist offen. Beides blind in den Bedienweg zu legen ist
+     verboten (Abwurf-Verdacht, Pruefung 9c) - und EINE Vermutung zu fixen und
+     ihn testen zu lassen ist der Fehler, der drei Sitzungen kostet.
+
+     Darum 2x2: Bit ja/nein gegen altes/neues Register. Vier Knoepfe, eine
+     Testrunde, danach ist eindeutig benannt, was fehlt. Die Farbe-vor-Modus-
+     Reihenfolge bleibt in allen vier gleich, sie ist gemessen und keine
+     Variable mehr. -->
+<details class="heute" open>
+  <summary><b>Test für heute</b> — hört das Band wirklich auf die Musik?</summary>
+  <div class="inhalt">
+  <p class="hinweis">Vier Knöpfe, und sie unterscheiden sich um <b>genau zwei</b>
+  Dinge: schicken wir dem Chip vorher das <b>Mikrofon-Bit</b>, und in welchem
+  <b>Register</b> geht die Empfindlichkeit raus. Farbe und Modus sind in allen
+  vier gleich. Modus und Farben kommen von oben.</p>
+  <p class="hinweis"><b>So prüfst du es — das ist der ganze Trick:</b> Knopf
+  drücken, 5 Sekunden hinsehen, dann <b>die Musik stumm schalten</b>.
+  Blitzt es ohne Musik einfach weiter, hört das Band <b>nicht</b> zu — dann ist
+  es der feste Firmware-Takt. Wird es ruhig und kommt mit der Musik zurück,
+  <b>hört es</b>. Das ist eindeutig, „ist es auf dem Beat" ist es nicht.</p>
+  <button id="g1">1 · ohne Bit, altes Register <span style="color:#777">(= Abendstart heute)</span></button>
+  <button id="g2">2 · <b>mit Bit</b>, altes Register</button>
+  <button id="g3">3 · ohne Bit, <b>neues Register</b></button>
+  <button id="g4">4 · <b>mit Bit</b> + <b>neues Register</b></button>
+  <div class="urteil grau" id="gUrteil">Noch nichts getestet.</div>
+  <p class="hinweis">Mir reichen vier kurze Antworten, z.B. <i>„1 blitzt durch,
+  2 blitzt durch, 3 blitzt durch, 4 wird still"</i>. Dann baue ich genau den
+  einen Weg in den Abendstart und sonst nichts.</p>
+  <p class="hinweis"><b>Blitzen alle vier bei Stille weiter</b>, kann das zwei
+  Dinge heißen: fester Takt — oder das Bandmikrofon ist so empfindlich, dass es
+  auf sein eigenes Rauschen anspringt. Dann stell die <b>Empfindlichkeit oben
+  auf 10</b> und geh die vier nochmal durch. Wird es damit bei Stille ruhig, war
+  es Überempfindlichkeit und das Band hört sehr wohl.</p>
+  <p class="hinweis">Die Knöpfe 2 und 4 schicken <code>7E 04</code>-Rahmen, die
+  im Verdacht stehen, die Verbindung abzuwerfen (dreimal gemessen am 18.09.).
+  Deshalb stehen sie hier einzeln und nicht im Abendstart. Die Seite sieht
+  12 Sekunden später selbst nach — mit einem echten Testbefehl, nicht nur dem
+  Verbindungsflag — und schreibt es ins Urteil. <b>Wirft es ab, sag mir das</b>,
+  dann ist der Weg tot.</p>
+  </div>
+</details>
+
+<details>
+  <summary><b>Werkstatt</b> — Messen, Leitern, Protokoll</summary>
+  <div class="inhalt">
 
 <fieldset>
   <legend>0 · Läuft das hier überhaupt?</legend>
@@ -89,19 +215,12 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
 </fieldset>
 
 <fieldset>
-  <legend>1 · Bänder</legend>
-  <div class="lampe"><span class="punkt" id="p1"></span><span id="t1">Band 1 — nicht verbunden</span></div>
-  <div class="lampe"><span class="punkt" id="p2"></span><span id="t2">Band 2 — nicht verbunden</span></div>
-  <div class="reihe">
-    <button class="haupt" id="verb1">Band 1 verbinden</button>
-    <button class="haupt" id="verb2">Band 2 verbinden</button>
-  </div>
+  <legend>1b · Hinweis zum Verbinden</legend>
   <p class="hinweis">Im Dialog stehen <b>alle</b> Bluetooth-Geräte in Reichweite,
   nicht nur die Bänder — das ist Absicht, weil Bluefy mit einem Namensfilter
   eine leere Liste zeigt. Die beiden Bänder heißen <b>ELK-BLEDOM</b>. Zweimal
   denselben Eintrag zu erwischen merkt die Seite nicht, das zeigt erst die
   Sichtprobe: es müssen <b>beide</b> rot werden.</p>
-  <button id="anAus">Beide an, auf Rot — Sichtprobe</button>
 </fieldset>
 
 <fieldset>
@@ -143,43 +262,11 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
 </fieldset>
 
 <fieldset>
-  <legend>4b · Band hört selbst (Mikrofon im Band)</legend>
-  <p class="hinweis">Das Band hat ein eigenes Mikrofon. Einmal hier eingeschaltet,
-  läuft das Strobo <b>in der Hardware</b> weiter — Handy sperren, weglegen, Seite
-  zumachen, egal. <b>Gemessen am 01.10. um 23:20 (4d, Stufe 3):</b> wird die Farbe
-  <b>vor</b> dem Modus geschickt, strobt das Band in <b>deiner</b> Farbe statt im
-  Regenbogen. Genau diese Reihenfolge schickt der Knopf unten: Empfindlichkeit →
-  Farbe → Modus. Modi 0–7 reagieren auf Musik, das Strobo war clean.</p>
-  <div class="hinweis">Modus:
-    <select id="micModus" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
-      <option value="0">0</option><option value="1">1</option>
-      <option value="2">2</option><option value="3">3</option>
-      <option value="4">4</option><option value="5">5</option>
-      <option value="6">6</option><option value="7">7</option>
-    </select>
-    &nbsp; Empfindlichkeit:
-    <input id="micEmp" type="number" min="0" max="100" value="50"
-           style="width:5em;background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
-    <span id="micGemerkt" style="color:#888"></span>
-  </div>
-  <div class="hinweis">Deine Farbe — geht <b>vor</b> dem Modus raus:
-    &nbsp; Band 1 links: <input id="micFarbe1" type="color" value="#ff0000">
-    &nbsp; Band 2 rechts: <input id="micFarbe2" type="color" value="#ffffff">
-    &nbsp; <label><input id="micFarbeAn" type="checkbox" checked> eigene Farbe
-    statt Firmware-Palette</label>
-  </div>
-  <button id="micAn">Abendstart: Farbe + Mikro-Modus an (beide Bänder)</button>
-  <button id="micAus">zurück auf Farbe</button>
-  <div class="urteil grau" id="micUrteil">Noch nicht geschaltet.</div>
-  <p class="hinweis"><b>Der gewählte Modus wird gemerkt</b> — auch über das Sperren
-  und über einen Neustart der Seite hinweg. Abschnitt 5 fällt damit auf genau
-  diesen Modus zurück, nicht mehr auf 0.</p>
-  <hr style="border:0;border-top:1px solid #222;margin:14px 0">
-  <p class="hinweis"><b>Welcher Modus sieht wie aus?</b> Noch nicht erfasst — das
-  klärt dieser Durchlauf. Er zeigt Modus 0 bis 7 der Reihe nach, je 8 Sekunden,
-  und schreibt groß hin, welcher gerade läuft. Musik muss laufen.
-  <b>Sag mir danach nur: welche Nummern sind einfarbig, welche zweifarbig, welche
-  Regenbogen.</b> Das entscheidet, ob wir überhaupt etwas umbauen müssen.</p>
+  <legend>4b · Modus-Rundgang — welcher sieht wie aus?</legend>
+  <p class="hinweis">Noch nicht erfasst. Zeigt Modus 0 bis 7 der Reihe nach, je
+  8 Sekunden, und schreibt groß hin, welcher läuft. Musik muss laufen.
+  <b>Sag mir danach nur: welche Nummern sind einfarbig, welche zweifarbig,
+  welche Regenbogen.</b> Am Ende springt er auf den gemerkten Modus zurück.</p>
   <button id="micRundgang">Alle 8 Modi durchzeigen (65 s)</button>
   <button id="micRundgangStop">abbrechen</button>
   <div class="urteil grau" id="micRundUrteil" style="font-size:1.4em">Noch nicht durchgezeigt.</div>
@@ -285,11 +372,18 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
   Erst 1 drücken (Grundzustand), dann 2 bis 5 der Reihe nach, und nach jedem
   hinsehen. Vor 3, 4 und 5 schickt die Seite den Grundzustand selbst neu — du
   musst nicht zurückspringen.</p>
-  <button id="t1">1 · Mikro-Modus an (Grundzustand)</button>
-  <button id="t2">2 · Farbe rot DANACH</button>
-  <button id="t3">3 · Farbe rot VORHER, dann Modus</button>
-  <button id="t4">4 · Farbe IM Modus-Befehl</button>
-  <button id="t5">5 · anderer Modus-Rahmen (7E 05 03)</button>
+  <p class="hinweis" style="color:#f0908a"><b>Wichtig, gemessen am 02.10.:</b>
+  die Knöpfe <b>1 und 2 waren bis v10 tot</b> und haben nie einen Befehl
+  geschickt — ihre IDs <code>t1</code>/<code>t2</code> gab es auf der Seite
+  zweimal, und der Klick landete auf den Textzeilen „Band 1/2 — nicht
+  verbunden". Was du bei Stufe 2 gesehen hast, war also noch das Bild von
+  vorher. <b>Seit v11 feuern sie.</b> Stufe 3 bis 7 waren immer in Ordnung, dein
+  Fund „Farbe vorher, dann Modus" steht.</p>
+  <button id="d1">1 · Mikro-Modus an (Grundzustand)</button>
+  <button id="d2">2 · Farbe rot DANACH</button>
+  <button id="d3">3 · Farbe rot VORHER, dann Modus</button>
+  <button id="d4">4 · Farbe IM Modus-Befehl</button>
+  <button id="d5">5 · anderer Modus-Rahmen (7E 05 03)</button>
   <div class="urteil grau" id="tUrteil">Noch nichts getestet.</div>
   <p class="hinweis">Nach jedem Knopf <b>zwei</b> Dinge: strobt es noch, und welche
   Farbe? „strobt rot" bei irgendeiner Stufe = gewonnen, dann baue ich genau die ein.
@@ -301,8 +395,8 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
   prüfen wir es, statt es anzunehmen. Wenn alle fünf Stufen das tun, ist die Frage
   beantwortet und <b>4f ist der Weg</b> — nicht dieser hier.</p>
   <hr style="border:0;border-top:1px solid #222;margin:14px 0">
-  <button id="t6">6 · nur Helligkeit 30</button>
-  <button id="t7">7 · nur Tempo 20</button>
+  <button id="d6">6 · nur Helligkeit 30</button>
+  <button id="d7">7 · nur Tempo 20</button>
   <p class="hinweis">Die zwei sind Beiwerk: greift die Helligkeit, kannst du das
   Band im Mikro-Modus wenigstens dimmen. Nur drücken, wenn oben alles durch ist.</p>
 </fieldset>
@@ -352,9 +446,12 @@ Plan nicht — und das soll man in zehn Minuten wissen, nicht nach zwei Tagen.</
   <div class="urteil grau" id="sperrUrteil">Noch nicht getestet.</div>
 </fieldset>
 
-<pre id="log">FASSUNG v10 — 4d Stufe 3 hat gewonnen: Farbe vor dem Modus, Abendstart in 4b.
-Steht hier NICHT v9, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
+<pre id="log">FASSUNG v11 — cleane Bedienung oben, Musik-Sync-Leiter (4g), alles Messen in der Werkstatt.
+Steht oben am Titel NICHT v11, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
 </pre>
+
+  </div>
+</details>
 <script src="dauerhaft.js"></script>
 
 <script>
@@ -1672,21 +1769,33 @@ async function testStufe(name, folge) {
    nicht klar, ob eine Stufe deshalb anders aussieht, weil ihr Befehl greift,
    oder weil die Stufe davor noch nachhaengt - genau der Fehler vom 19.09.,
    als eine Leiter zwei Dinge gleichzeitig verstellte. */
+/* UMBENANNT IN v11: t1..t7 -> d1..d7. Die Knoepfe hiessen t1 und t2, und genau
+   diese zwei IDs tragen auch die Statuszeilen "Band 1/2 - nicht verbunden"
+   (lampe() spricht sie als $("#t" + nr) an). querySelector nimmt das ERSTE
+   Element im Dokument, also den Span - damit landete
+   `$("#t1").onclick = ...` auf einem Textabsatz und die Knoepfe 1 und 2 hatten
+   gar keinen Handler. Am 02.10. im Browser gemessen: onclick=NULL an beiden
+   Knoepfen, waehrend t3 sauber gesetzt war.
+   Folge fuer unser Protokoll: das Mikrofon-Bit 7E 04 07 01, das Stufe 1
+   schickt, war NIE an MILOIDs Band. Die Annahme "beim funktionierenden Test
+   hatte er vorher Stufe 1 gedrueckt" ist damit widerlegt, und seine Beobachtung
+   zu Stufe 2 ("bunt") bezieht sich auf einen Befehl, der nie rausging.
+   Pruefung 0 wacht jetzt darueber, dass keine ID zweimal vorkommt. */
 const tRot = () => korr(255, 0, 0);
 const tModus = () => parseInt($("#micModus").value, 10) || 0;
 
-$("#t1").onclick = () => testStufe("1 Mikro-Modus " + tModus() + " an (Grundzustand)",
+$("#d1").onclick = () => testStufe("1 Mikro-Modus " + tModus() + " an (Grundzustand)",
   [cmdMicAn(true), cmdMicEmpA(50), cmdMic(tModus())]);
-$("#t2").onclick = () => testStufe("2 Farbe rot DANACH",
+$("#d2").onclick = () => testStufe("2 Farbe rot DANACH",
   [cmdFarbe(...tRot())]);
-$("#t3").onclick = () => testStufe("3 Farbe rot VORHER, dann Modus",
+$("#d3").onclick = () => testStufe("3 Farbe rot VORHER, dann Modus",
   [cmdFarbe(...tRot()), cmdMic(tModus())]);
-$("#t4").onclick = () => testStufe("4 Farbe IM Modus-Befehl",
+$("#d4").onclick = () => testStufe("4 Farbe IM Modus-Befehl",
   [cmdMicFarbe(tModus(), ...tRot())]);
-$("#t5").onclick = () => testStufe("5 anderer Modus-Rahmen 7E 05 03",
+$("#d5").onclick = () => testStufe("5 anderer Modus-Rahmen 7E 05 03",
   [cmdFarbe(...tRot()), cmdMicA(tModus())]);
-$("#t6").onclick = () => testStufe("6 nur Helligkeit 30", [cmdHell(30)]);
-$("#t7").onclick = () => testStufe("7 nur Tempo 20",      [cmdTempo(20)]);
+$("#d6").onclick = () => testStufe("6 nur Helligkeit 30", [cmdHell(30)]);
+$("#d7").onclick = () => testStufe("7 nur Tempo 20",      [cmdTempo(20)]);
 
 /* --- 4e: welches Empfindlichkeits-Register versteht das Band? --------------
    MILOID: "die empfindlichkeit loest ebenfalls nichts aus." Bestaetigt - die
@@ -1758,6 +1867,158 @@ $("#e4").onclick = () => eStufe("4 alter Weg NACH dem Modus",
   [cmdMic(tModus()), cmdMicEmp(5)],
   [cmdMic(tModus()), cmdMicEmp(95)]);
 $("#eStop").onclick = () => { eAbbruch = true; };
+
+/* --- 4g: hoert das Band wirklich auf die Musik? ----------------------------
+   MILOID 01.10., 23:45 zu Modus 7: "zwar strobo in der gewuenschten farbe aber
+   alles nicht wirklich music sync, also laeuft ohne pause nicht auf den beat".
+
+   Was wir wissen: der EINE Durchlauf, der funktioniert hat, lief nach 4d Stufe
+   1 - und die schickt zwei Dinge, die der Abendstart nicht schickt:
+     a) das Mikrofon-Bit   7E 04 07 01   (cmdMicAn(true))
+     b) die Empfindlichkeit im neuen Register 7E 04 06 (cmdMicEmpA)
+   Ohne a) hat der Chip vielleicht gar nie zugehoert und lief im festen Takt -
+   genau MILOIDs Bild. Welches der beiden es ist, ist UNGEMESSEN.
+
+   Beides blind in den Bedienweg zu legen ist verboten (7E 04 steht unter
+   Abwurf-Verdacht, Pruefung 9c wacht darueber), und eine Vermutung zu fixen
+   und ihn testen zu lassen ist der Fehler, der drei Sitzungen kostet. Also
+   2x2: Bit ja/nein GEGEN altes/neues Register. Vier Knoepfe, eine Testrunde,
+   danach ist eindeutig, was fehlt. Farbe-vor-Modus bleibt ueberall gleich -
+   das ist gemessen und keine Variable mehr.
+
+   Der Abwurf-Verdacht wird gleich mitgemessen: vier Sekunden nach dem Senden
+   sieht die Seite selbst nach, ob die Baender noch am GATT haengen. Damit
+   kostet die Runde nicht nur die Antwort auf "hoert es", sondern raeumt auch
+   den Verdacht auf oder bestaetigt ihn. */
+/* Nachschau erst NACH dem Beobachtungsfenster: MILOID sieht 5 s hin, schaltet
+   stumm, sieht wieder hin. Vorher waren es 4 s - mitten in seinem Hinsehen, und
+   der Testbefehl unten haette dort sichtbar gezuckt. */
+const G_NACHSCHAU = 12000;    // ms, dann Verbindungsstand pruefen
+/* Abstand zwischen den Einstellbefehlen, NUR in dieser Leiter.
+   Gegenpruefung Gemini 02.10.: vier Rahmen ohne Pause ueberfordern den
+   RX-Puffer dieser Billig-Controller, Pakete gehen verloren. Der Bedienweg
+   schickt drei Rahmen ohne Pause und laeuft gemessen - deshalb bleibt
+   micSchalten unangetastet, ein funktionierender Weg wird nicht angefasst.
+   Hier kommen aber bis zu VIER Rahmen raus, und ein verlorener Rahmen wuerde
+   die Leiter mehrdeutig machen ("Bit hilft nicht" statt "Bit kam nie an").
+   Die Pause ist in allen vier Stufen gleich, also keine Variable zwischen
+   ihnen. Einziger bewusster Unterschied zum Abendstart: dessen Rahmen gehen
+   ohne Pause. Faellt g1 anders aus als der Abendstart, ist das Timing selbst
+   die Ursache - auch das waere ein Fund. */
+const G_ABSTAND = 25;         // ms zwischen zwei Rahmen
+/* Die Nachschau darf die Bedienung NICHT sperren. Erste Fassung hielt ein
+   gLaeuft-Flag ueber die ganzen vier Sekunden - gemessen im Prueflauf:
+   Knopf 2, 3 und 4 schickten dann gar nichts, weil der Prueflauf schneller
+   klickt als die Nachschau laeuft. Am Band waere es derselbe Fehler gewesen,
+   nur langsamer: MILOID tippt nach zwei Sekunden den naechsten Knopf und es
+   passiert nichts. Darum jetzt ein Generationszaehler: jeder Klick macht die
+   Nachschau des vorigen ungueltig, und gesperrt ist nur die Sendephase
+   (Millisekunden) gegen einen versehentlichen Doppeltipp. */
+let gGeneration = 0, gSendet = false;
+
+async function gStufe(name, mitBit, neuesRegister) {
+  const u = $("#gUrteil");
+  const aktiv = baender.filter((b) => b && b.merkmal);
+  if (!aktiv.length) {
+    u.className = "urteil fehler";
+    u.textContent = "Kein Band verbunden — erst oben verbinden.";
+    return;
+  }
+  if (gSendet) return;                 // Doppeltipp, der erste Klick laeuft noch
+  const meine = ++gGeneration;         // ab hier ist jede aeltere Nachschau tot
+  const m = parseInt($("#micModus").value, 10) || 0;
+  let s = parseInt($("#micEmp").value, 10);
+  if (!isFinite(s)) s = 50;
+  s = Math.max(0, Math.min(100, s));
+  const farbeAn = $("#micFarbeAn").checked;
+  const farbFeld = ["#micFarbe1", "#micFarbe2"];
+  const schlecht = [];
+  let gut = 0;
+  gSendet = true;
+  try {
+    /* Ueber den Index, nicht ueber `aktiv` - sonst bekaeme Band 2 die Farbe von
+       Band 1, sobald Band 1 nicht verbunden ist (derselbe Fehler wie in
+       micSchalten vor v10). */
+    for (let n = 0; n < baender.length; n++) {
+      const b = baender[n];
+      if (!b || !b.merkmal) continue;
+      /* Jeder Rahmen einzeln, mit G_ABSTAND dazwischen (siehe oben). Die Folge
+         wird erst gebaut und dann geschickt, damit die Reihenfolge im Code
+         genauso steht wie sie rausgeht. */
+      const folge = [];
+      if (mitBit) folge.push(cmdMicAn(true));
+      folge.push(neuesRegister ? cmdMicEmpA(s) : cmdMicEmp(s));
+      if (farbeAn) {
+        const [fr, fg, fb] = hexRgb($(farbFeld[n] || farbFeld[0]).value);
+        folge.push(cmdFarbe(...korr(fr, fg, fb)));
+      }
+      folge.push(cmdMic(m));
+      try {
+        for (let i = 0; i < folge.length; i++) {
+          if (i) await ePause(G_ABSTAND);
+          await sende(b, folge[i]);
+        }
+        gut++;
+      } catch (e) { schlecht.push("Band " + (n + 1) + ": " + fehlertext(e)); }
+    }
+  } finally { gSendet = false; }
+  u.className = gut ? "urteil gut" : "urteil fehler";
+  u.textContent = name + " → raus an " + gut + " von " + aktiv.length
+    + " Bändern (Modus " + m + ", Empf. " + s + ")."
+    + (schlecht.length ? " Fehler: " + schlecht.join(" / ") + "." : "")
+    + " JETZT 5 s hinsehen, dann die MUSIK STUMM schalten: blitzt es weiter"
+    + " (hört nicht) oder wird es still (hört)?";
+  log("4g " + name + ": " + gut + "/" + aktiv.length
+      + (schlecht.length ? " — " + schlecht.join(" / ") : ""));
+  /* Nachschau auf den Abwurf — MIT echtem Schreibvorgang.
+     Erste Fassung las nur gatt.connected. Gegenpruefung Gemini 02.10.: auf iOS
+     liegt CoreBluetooth darunter, und das Flag wird nach einem harten Trennen
+     durch das Band oft erst aktualisiert, wenn die naechste GATT-Operation
+     fehlschlaegt. Ein reines Auslesen haette also "kein Abwurf" gemeldet,
+     obwohl die Verbindung weg ist - Scheinsicherheit, und genau die ist
+     schlimmer als keine Messung.
+     Der Testbefehl ist derselbe Modus, der schon laeuft: er setzt nichts Neues,
+     der Chip bleibt wo er ist. Deshalb auch erst nach G_NACHSCHAU, wenn MILOID
+     mit dem Hinsehen durch ist.
+     "uebersprungen" aus sende() ist KEIN Abwurf, sondern die Bandsperre, weil
+     gerade etwas anderes rausgeht. Als Abwurf zu melden waere ein Fehlalarm. */
+  await ePause(G_NACHSCHAU);
+  if (meine !== gGeneration) return;   // ein neuerer Knopf hat uebernommen
+  const weg = [];
+  for (let n = 0; n < baender.length; n++) {
+    const b = baender[n];
+    if (!b) continue;
+    if (!(b.geraet && b.geraet.gatt && b.geraet.gatt.connected)) {
+      weg.push("Band " + (n + 1));
+      continue;
+    }
+    if (!b.merkmal || b.belegt) continue;      // nicht pruefbar, nicht raten
+    try {
+      await sende(b, cmdMic(m));
+    } catch (e) {
+      const t = fehlertext(e);
+      if (t.indexOf("übersprungen") < 0) weg.push("Band " + (n + 1));
+    }
+  }
+  if (meine !== gGeneration) return;   // waehrend der Nachschau weitergeklickt
+  if (weg.length) {
+    u.className = "urteil nein";
+    u.textContent = name + " → " + weg.join(" und ")
+      + " ist ABGEWORFEN (nach " + Math.round(G_NACHSCHAU / 1000)
+      + " s nachgesehen, mit echtem Testbefehl). Dieser Weg ist tot, sag mir das."
+      + " Band neu verbinden, dann den nächsten Knopf.";
+    log("4g " + name + ": ABWURF — " + weg.join(", "));
+  } else {
+    u.textContent += "  ·  Verbindung steht nach "
+      + Math.round(G_NACHSCHAU / 1000) + " s noch, Testbefehl kam durch (kein Abwurf).";
+    log("4g " + name + ": kein Abwurf, Testbefehl durch");
+  }
+}
+
+$("#g1").onclick = () => gStufe("1 ohne Bit, altes Register",  false, false);
+$("#g2").onclick = () => gStufe("2 MIT Bit, altes Register",   true,  false);
+$("#g3").onclick = () => gStufe("3 ohne Bit, neues Register",  false, true);
+$("#g4").onclick = () => gStufe("4 MIT Bit, neues Register",   true,  true);
 
 /* --- 4f: die sieben einfarbigen Strobos der Hardware ----------------------
    Der Fund, der MILOIDs Satz direkt beantwortet, und er lag die ganze Zeit in
