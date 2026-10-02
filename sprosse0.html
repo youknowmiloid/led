@@ -106,7 +106,7 @@ window.__probleme = [];
 </script>
 
 <h1>SPROSSE 0</h1>
-<p class="fassung">FASSUNG v12 · MILOID LED</p>
+<p class="fassung">FASSUNG v13 · MILOID LED</p>
 
 <fieldset class="oben">
   <legend>Bänder</legend>
@@ -446,8 +446,8 @@ window.__probleme = [];
   <div class="urteil grau" id="sperrUrteil">Noch nicht getestet.</div>
 </fieldset>
 
-<pre id="log">FASSUNG v12 — Empfindlichkeit geht jetzt über das neue Register (7E 04 06), wie Stufe 3 der Leiter 4g. Am Band gemessen am 02.10.
-Steht oben am Titel NICHT v12, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
+<pre id="log">FASSUNG v13 — Abendstart ist jetzt genau Stufe 3 der Leiter 4g: neues Empfindlichkeits-Register (7E 04 06) und 25 ms Abstand zwischen den Befehlen. Am Band gemessen am 02.10.
+Steht oben am Titel NICHT v13, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
 </pre>
 
   </div>
@@ -1232,6 +1232,14 @@ async function micSchalten(an) {
            die Seite hat in 4g selbst dagegen gemessen (9e), also ist 7E 04 06
            im Bedienweg erlaubt und 7E 04 07 weiter nicht. */
         await sende(b, cmdMicEmpA(s));
+        /* G_ABSTAND zwischen den Rahmen, wie in der Leiter. Gegenpruefung
+           Gemini 02.10. zu Recht: die gewinnende Stufe g3 hatte 25 ms Abstand,
+           der Abendstart hatte keinen. Ohne den Abstand unterscheidet sich der
+           Bedienweg um genau eine Variable von dem, was am Band gemessen wurde
+           - und ein stillschweigend verworfener Rahmen (Farbe oder Modus) sieht
+           dann aus wie "der Chip hoert nicht". Damit ist der Abendweg ab v13
+           byteweise UND zeitlich die Stufe g3. */
+        await ePause(G_ABSTAND);
         /* Der Fund vom 01.10., 23:20, an MILOIDs Band gemessen (4d, Stufe 3):
            Farbe VORHER, dann Modus -> das Firmware-Strobo laeuft in UNSERER
            Farbe. Stufe 2, dieselbe Farbe danach geschickt, war bunt. Die
@@ -1242,6 +1250,7 @@ async function micSchalten(an) {
         if (farbeAn) {
           const [fr, fg, fb] = hexRgb($(farbFeld[n] || farbFeld[0]).value);
           await sende(b, cmdFarbe(...korr(fr, fg, fb)));
+          await ePause(G_ABSTAND);
         }
         await sende(b, cmdMic(m));
       } else {
