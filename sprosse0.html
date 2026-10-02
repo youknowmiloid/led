@@ -106,7 +106,7 @@ window.__probleme = [];
 </script>
 
 <h1>SPROSSE 0</h1>
-<p class="fassung">FASSUNG v15 · MILOID LED</p>
+<p class="fassung">FASSUNG v16 · MILOID LED</p>
 
 <fieldset class="oben">
   <legend>Bänder</legend>
@@ -187,30 +187,39 @@ window.__probleme = [];
        vier Stufen hoeren, und "g3 war am besten" war kein Messwert, sondern
        Rauschen. Das ist eingearbeitet statt beschoenigt. -->
   <fieldset>
-    <legend>NEU · 4h — der wahrscheinliche Grund: Modus 7 gibt es nicht</legend>
-    <p class="hinweis">Ich habe die fertige Steuerung für genau diesen Chip
-    gelesen. Der Befehl, den ich die ganze Zeit „Mikro-Modus 0 bis 7" genannt
-    habe, ist in Wahrheit die <b>Klang-Vorwahl des Bandmikrofons</b> — und die
-    hat nur <b>vier</b> Stufen: <i>Classic, Soft, Dynamic, Disco</i>.
-    <b>„Modus 7" existiert nicht.</b> Dein Band bekommt eine Zahl, die es nicht
-    kennt, und fällt auf ein festes Strobo zurück. Genau das, was du siehst.</p>
-    <p class="hinweis">Diese vier Knöpfe schicken erstmals eine Zahl, die der
-    Chip kennen kann. Sie unterscheiden sich von Knopf 1 um <b>je genau eine
-    Sache</b> — damit eine Runde sagt, was es war. Deine Farben von oben gehen
-    mit, die Empfindlichkeit auch. <b>Modus-Auswahl oben ist hier egal.</b></p>
-    <p class="hinweis"><b>Zuerst 10 Sekunden ohne Handy:</b> sieh dir die kleine
-    Box am Kabel an. Ist da ein <b>winziges Loch</b> drin (Stecknadelkopf, oft
-    neben der Fernbedienungs-Scheibe)? Das ist das Mikrofon. <b>Kein Loch →
-    dein Controller hat keins</b>, dann kann kein Befehl der Welt ihn auf Musik
-    hören lassen und wir nehmen heute Abend 4f. Sag mir einfach „Loch" oder
-    „kein Loch", das spart dir die ganze Testrunde.</p>
-    <p class="hinweis"><b>Gleiche Prüfung wie immer:</b> drücken, 5 Sekunden
-    hinsehen, <b>Musik stumm schalten</b>. Blitzt es weiter → taub. Wird es
-    still und kommt mit der Musik zurück → es hört.<br>
-    <b>Und sag mir diesmal eine Sache mehr:</b> bleibt es in <b>deinen Farben</b>
-    oder wird es bunt? Mit einer Zahl, die der Chip kennt, fährt er vielleicht
-    sein eigenes Farbmuster — dann drehe ich die Farbe hinter den EQ-Befehl.
-    Das ist ein Einzeiler, aber nur wenn ich weiß, dass es nötig ist.</p>
+    <legend>NEU · 4i — es hört. Jetzt nur noch DEINE Farbe.</legend>
+    <p class="hinweis"><b>Dein Video vom 15:31 hat die große Frage erledigt.</b>
+    Ausgemessen: <b>23 von 23</b> lauten Stellen im Ton haben binnen
+    <b>33–67 ms</b> einen Farbwechsel ausgelöst. Zufall wäre 46 % gewesen.
+    Der Chip hört, schneller als wir es über Bluetooth je könnten — und er lief
+    weiter, während du mit demselben iPhone gefilmt hast. <b>Also auch ohne die
+    App.</b> Genau das war das Ziel für heute Abend.</p>
+    <p class="hinweis">Übrig bleibt eine Sache: das Band fährt <b>seine</b>
+    Farben (grün, lila, weiß, blau, cyan, rot) statt deiner. Der Farbbefehl
+    <i>vor</i> dem Modus kommt beim Mikro-Rahmen nicht an — beim normalen
+    Animationsmodus tut er es, das ist der Unterschied.</p>
+    <p class="hinweis">Diese vier Knöpfe sind <b>identisch</b> zum bisherigen
+    Weg und drehen <b>genau eine</b> Sache: wo der Farbbefehl steht. Deine
+    Farben von oben gehen mit, die Empfindlichkeit auch.
+    <b>Modus-Auswahl oben ist hier egal.</b></p>
+    <button id="i1">1 · Farbe <b>nach</b> dem Modus</button>
+    <button id="i2">2 · Farbe nach dem Modus, <b>400 ms später</b></button>
+    <button id="i3">3 · Farbe <b>im</b> Modusbefehl (altes Layout)</button>
+    <button id="i4">4 · Farbe <b>im</b> Modusbefehl (Referenz-Layout)</button>
+    <div class="urteil grau" id="iUrteil">Noch nichts getestet.</div>
+    <p class="hinweis">Hier geht es <b>nicht</b> mehr ums Hören — das ist
+    gemessen. Nur noch um die Farbe. Je Knopf: drücken, Musik läuft,
+    <b>hinsehen welche Farbe kommt</b>. Gesucht ist der Knopf, bei dem es in
+    <b>deiner</b> Farbe auf den Beat geht statt bunt durchzuwechseln.<br>
+    Antwort reicht kurz: <i>„1 bunt, 2 bunt, 3 rot, 4 bunt"</i>.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>4h · Hört der Chip? <span style="color:#4a4">erledigt</span></legend>
+    <p class="hinweis"><b>Beantwortet durch dein Video vom 02.10. 15:31.</b>
+    23 von 23 Tonspitzen haben binnen 33–67 ms einen Farbwechsel ausgelöst
+    (Zufall wäre 46 %). Der Chip hört, und er läuft ohne die App weiter.
+    Diese vier Knöpfe nur noch drücken, wenn ich darum bitte.</p>
     <button id="h1">1 · <b>Disco</b> + Mikro an <span style="color:#777">(die Referenz)</span></button>
     <button id="h2">2 · wie 1, aber <b>Classic</b> statt Disco</button>
     <button id="h3">3 · wie 1, aber <b>ohne</b> Mikro-Bit</button>
@@ -501,7 +510,7 @@ window.__probleme = [];
   <div class="urteil grau" id="sperrUrteil">Noch nicht getestet.</div>
 </fieldset>
 
-<pre id="log">FASSUNG v15 — Fund: der Mikro-Rahmen ist eine EQ-Vorwahl mit nur VIER Werten (Classic/Soft/Dynamic/Disco). "Modus 7" kennt der Chip nicht. Neue Leiter 4h oben, plus der Blick aufs Mikrofonloch.
+<pre id="log">FASSUNG v16 — Dein Video ist ausgemessen: der Chip HÖRT (23/23 Tonspitzen, 33-67 ms) und läuft ohne die App weiter. Offen ist nur noch die Farbe — dafür die neue Leiter 4i oben.
 Steht oben am Titel NICHT v15, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
 </pre>
 
@@ -1979,6 +1988,12 @@ const G_NACHSCHAU = 12000;    // ms, dann Verbindungsstand pruefen
    ohne Pause. Faellt g1 anders aus als der Abendstart, ist das Timing selbst
    die Ursache - auch das waere ein Fund. */
 const G_ABSTAND = 25;         // ms zwischen zwei Rahmen
+/* Nur fuer 4i Stufe 2: Wartezeit zwischen Mikro-Rahmen und Farbbefehl. Grund
+   fuer eine zweite Zahl statt G_ABSTAND: wenn der Chip den Moduswechsel intern
+   erst abschliessen muss, bevor er eine Farbe annimmt, dann ist 25 ms zu frueh
+   und die Farbe verpufft - dasselbe Bild wie "Farbe kommt nicht an". 400 ms
+   liegen sicher darueber und sind am Band noch keine spuerbare Verzoegerung. */
+const G_FARBPAUSE = 400;      // ms, nur 4i Stufe 2
 /* Die Nachschau darf die Bedienung NICHT sperren. Erste Fassung hielt ein
    gLaeuft-Flag ueber die ganzen vier Sekunden - gemessen im Prueflauf:
    Knopf 2, 3 und 4 schickten dann gar nichts, weil der Prueflauf schneller
@@ -2013,9 +2028,18 @@ async function gStufe(name, mitBit, neuesRegister, opt) {
   s = Math.max(0, Math.min(100, s));
   /* Der letzte Rahmen der Stufe. 4g nimmt den Modus von oben in unserem
      Layout, 4h eine feste EQ-Nummer - im Referenz-Layout (cmdMicA) oder in
-     unserem alten (cmdMic), je nachdem welche Variable die Stufe dreht. */
-  const letzter = () => (o.eq === undefined ? cmdMic(m)
-                         : (o.alt ? cmdMic(o.eq) : cmdMicA(o.eq)));
+     unserem alten (cmdMic), je nachdem welche Variable die Stufe dreht.
+     4i (02.10.) gibt zusaetzlich die Farbe mit: MILOIDs Video vom 15:31 zeigt
+     den Chip hoerend (23/23 Tonspitzen getroffen, 33-67 ms), aber in SEINEN
+     Farben statt in MILOIDs - der Farbbefehl VOR dem Mikro-Rahmen kommt also
+     nicht an. Hier stehen die drei anderen Stellen, an die er gehoeren koennte. */
+  const letzter = (rgb) => {
+    if (o.eq === undefined) return cmdMic(m);
+    if (rgb && o.farbPos === "drin")  return cmdMicFarbe(o.eq, rgb[0], rgb[1], rgb[2]);
+    if (rgb && o.farbPos === "drinA") return rahmen(0x05, 0x03, 0x80 | o.eq, 0x04,
+                                                    rgb[0], rgb[1], rgb[2]);
+    return o.alt ? cmdMic(o.eq) : cmdMicA(o.eq);
+  };
   const farbeAn = $("#micFarbeAn").checked;
   const farbFeld = ["#micFarbe1", "#micFarbe2"];
   const schlecht = [];
@@ -2034,14 +2058,26 @@ async function gStufe(name, mitBit, neuesRegister, opt) {
       const folge = [];
       if (mitBit) folge.push(cmdMicAn(true));
       folge.push(neuesRegister ? cmdMicEmpA(s) : cmdMicEmp(s));
+      /* Farbposition. Ohne o.farbPos ist es "vor" - damit laufen 4g und 4h
+         unveraendert weiter und 4i ist reiner Zuwachs, kein Umbau. */
+      const fpos = o.farbPos || "vor";
+      let rgb = null;
       if (farbeAn) {
         const [fr, fg, fb] = hexRgb($(farbFeld[n] || farbFeld[0]).value);
-        folge.push(cmdFarbe(...korr(fr, fg, fb)));
+        rgb = korr(fr, fg, fb);
       }
-      folge.push(letzter());
+      if (rgb && fpos === "vor") folge.push(cmdFarbe(rgb[0], rgb[1], rgb[2]));
+      folge.push(letzter(rgb));
+      if (rgb && (fpos === "nach" || fpos === "nachLang"))
+        folge.push(cmdFarbe(rgb[0], rgb[1], rgb[2]));
       try {
         for (let i = 0; i < folge.length; i++) {
-          if (i) await ePause(G_ABSTAND);
+          /* Nur 4i-Stufe "nachLang" wartet vor dem LETZTEN Rahmen laenger:
+             falls der Chip den Moduswechsel erst verdaut, bevor er eine Farbe
+             annimmt. Alle anderen Stufen behalten G_ABSTAND - Produktivweg und
+             Messweg duerfen sich sonst in nichts unterscheiden (v12-Fehler). */
+          if (i) await ePause(i === folge.length - 1 && fpos === "nachLang"
+                              ? G_FARBPAUSE : G_ABSTAND);
           await sende(b, folge[i]);
         }
         gut++;
@@ -2125,6 +2161,29 @@ async function gStufe(name, mitBit, neuesRegister, opt) {
      h4  nur das Rahmenlayout anders (cmdMic)      -> ist es Byte 1 / die Fuellbytes?
    Empfindlichkeit, Farbe und Reihenfolge sind in allen vier gleich und damit
    keine Variable. */
+/* --- 4i: WO gehoert der Farbbefehl hin? ----------------------------------
+   Ausgangslage, gemessen aus MILOIDs Video vom 02.10. 15:31 (8,73 s, 30 fps,
+   ausgewertet in .claude/scripts/scratch/band_farbe.py):
+     - 23 von 23 lauten Frames haben binnen 3 Frames einen Farbwechsel,
+       Zufallswert bei gleicher Wechseldichte 46 %. Der Chip HOERT.
+     - Verzoegerung Ton -> Wechsel 1-2 Frames = 33-67 ms.
+     - Der Modus lief weiter, waehrend MILOID mit demselben iPhone filmte -
+       Bluefy war also im Hintergrund. Die Hardware-Lesart ist damit belegt.
+     - ABER: das Band faehrt SEINE Farben (gruen/lila/weiss/blau/cyan/rot),
+       nicht MILOIDs. Der Farbbefehl vor dem Mikro-Rahmen kommt nicht an.
+   Beim Animations-Modus war "Farbe VOR dem Modus" am 01.10. gemessen richtig.
+   Beim Mikro-Rahmen ist er es nicht - das ist der Unterschied, den 4i abtastet.
+   Alle vier Stufen sind identisch zu h1 (EQ 3 Disco, Bit an, neues Register)
+   und drehen GENAU EINE Sache: wo die Farbe steht. */
+$("#i1").onclick = () => gStufe("1 Farbe NACH dem Modus", true, true,
+                                { eq: 3, farbPos: "nach", feld: "#iUrteil", marke: "4i" });
+$("#i2").onclick = () => gStufe("2 Farbe nach dem Modus, 400 ms spaeter", true, true,
+                                { eq: 3, farbPos: "nachLang", feld: "#iUrteil", marke: "4i" });
+$("#i3").onclick = () => gStufe("3 Farbe IM Rahmen (altes Layout)", true, true,
+                                { eq: 3, farbPos: "drin", feld: "#iUrteil", marke: "4i" });
+$("#i4").onclick = () => gStufe("4 Farbe IM Rahmen (Referenz-Layout)", true, true,
+                                { eq: 3, farbPos: "drinA", feld: "#iUrteil", marke: "4i" });
+
 $("#h1").onclick = () => gStufe("1 Disco + Bit (Referenz)", true,  true,
                                 { eq: 3, feld: "#hUrteil", marke: "4h" });
 $("#h2").onclick = () => gStufe("2 Classic statt Disco",    true,  true,
