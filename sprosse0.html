@@ -106,7 +106,7 @@ window.__probleme = [];
 </script>
 
 <h1>SPROSSE 0</h1>
-<p class="fassung">FASSUNG v11 · MILOID LED</p>
+<p class="fassung">FASSUNG v12 · MILOID LED</p>
 
 <fieldset class="oben">
   <legend>Bänder</legend>
@@ -446,8 +446,8 @@ window.__probleme = [];
   <div class="urteil grau" id="sperrUrteil">Noch nicht getestet.</div>
 </fieldset>
 
-<pre id="log">FASSUNG v11 — cleane Bedienung oben, Musik-Sync-Leiter (4g), alles Messen in der Werkstatt.
-Steht oben am Titel NICHT v11, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
+<pre id="log">FASSUNG v12 — Empfindlichkeit geht jetzt über das neue Register (7E 04 06), wie Stufe 3 der Leiter 4g. Am Band gemessen am 02.10.
+Steht oben am Titel NICHT v12, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
 </pre>
 
   </div>
@@ -1221,8 +1221,17 @@ async function micSchalten(an) {
            nachweislich laeuft. Die neuen Register gehen AUSSCHLIESSLICH in der
            Leiter 4e raus, knopfweise, wo ein Abwurf nur einen Test kostet und
            nicht den Abend. Sagt die Leiter, welches Register greift, wird hier
-           genau eines nachgezogen. */
-        await sende(b, cmdMicEmp(s));
+           genau eines nachgezogen.
+
+           GEMESSEN 02.10. am Band, Leiter 4g, MILOID woertlich: "ohne bit,
+           neues register haben das beste stummschaltverhaeltnis gehabt". Das
+           ist Stufe g3. Damit ist genau EINES nachgezogen: die Empfindlichkeit
+           geht ab v12 ueber cmdMicEmpA (7E 04 06), nicht mehr ueber cmdMicEmp
+           (7E 00 07). Das Mikro-Bit 7E 04 07 kommt NICHT mit - g2 und g4
+           hatten es und waren schlechter. Abwurf trat in der Runde nicht auf,
+           die Seite hat in 4g selbst dagegen gemessen (9e), also ist 7E 04 06
+           im Bedienweg erlaubt und 7E 04 07 weiter nicht. */
+        await sende(b, cmdMicEmpA(s));
         /* Der Fund vom 01.10., 23:20, an MILOIDs Band gemessen (4d, Stufe 3):
            Farbe VORHER, dann Modus -> das Firmware-Strobo laeuft in UNSERER
            Farbe. Stufe 2, dieselbe Farbe danach geschickt, war bunt. Die
