@@ -106,7 +106,7 @@ window.__probleme = [];
 </script>
 
 <h1>SPROSSE 0</h1>
-<p class="fassung">FASSUNG v16 · MILOID LED</p>
+<p class="fassung">FASSUNG v17 · MILOID LED</p>
 
 <fieldset class="oben">
   <legend>Bänder</legend>
@@ -187,7 +187,32 @@ window.__probleme = [];
        vier Stufen hoeren, und "g3 war am besten" war kein Messwert, sondern
        Rauschen. Das ist eingearbeitet statt beschoenigt. -->
   <fieldset>
-    <legend>NEU · 4i — es hört. Jetzt nur noch DEINE Farbe.</legend>
+    <legend>NEU · 4j — raus aus dem bunten Profil</legend>
+    <p class="hinweis"><b>Dein Ergebnis aus 4i hat die Stelle gefunden:</b> bei
+    Knopf 1 und 2 stand das Band in <b>deiner</b> Farbe. Der Farbbefehl
+    <i>nach</i> dem Modus kommt also an — 3 und 4 sind tot, die Bytes im
+    Modusrahmen sind keine Farbkanäle.</p>
+    <p class="hinweis"><b>Warum es trotzdem wieder bunt wurde:</b> alle vier
+    Knöpfe liefen auf EQ-Profil <b>Disco</b> — dem einzigen der vier, das schon
+    im Namen Farbwechsel trägt. Das Profil fährt sein eigenes Farbprogramm und
+    holt sich die Farbe laufend zurück. <b>Classic, Soft und Dynamic haben wir
+    nie probiert.</b> Ist eines davon einfarbig, sind wir fertig.</p>
+    <p class="hinweis">Je Knopf: drücken, Musik läuft, <b>20 Sekunden
+    hinsehen</b> — länger als vorhin, es geht ja genau darum, ob die Farbe
+    <i>bleibt</i>. Gesucht: blitzt auf den Beat <b>und</b> hält deine Farbe.<br>
+    Antwort kurz: <i>„1 hält rot, 2 wird bunt, 3 hält, 4 hält"</i>.</p>
+    <button id="j1">1 · <b>Classic</b></button>
+    <button id="j2">2 · <b>Soft</b></button>
+    <button id="j3">3 · <b>Dynamic</b></button>
+    <button id="j4">4 · Classic, Farbe <b>400 ms später</b></button>
+    <div class="urteil grau" id="jUrteil">Noch nichts getestet.</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>4i · Wo gehört die Farbe hin? <span style="color:#4a4">erledigt</span></legend>
+    <p class="hinweis"><b>Beantwortet 02.10. 15:55:</b> Knopf 1 und 2 halten
+    kurz deine Farbe → der Farbbefehl gehört <b>nach</b> den Modus. 3 und 4
+    bewirken nichts. Nur noch drücken, wenn ich darum bitte.</p>
     <p class="hinweis"><b>Dein Video vom 15:31 hat die große Frage erledigt.</b>
     Ausgemessen: <b>23 von 23</b> lauten Stellen im Ton haben binnen
     <b>33–67 ms</b> einen Farbwechsel ausgelöst. Zufall wäre 46 % gewesen.
@@ -510,7 +535,7 @@ window.__probleme = [];
   <div class="urteil grau" id="sperrUrteil">Noch nicht getestet.</div>
 </fieldset>
 
-<pre id="log">FASSUNG v16 — Dein Video ist ausgemessen: der Chip HÖRT (23/23 Tonspitzen, 33-67 ms) und läuft ohne die App weiter. Offen ist nur noch die Farbe — dafür die neue Leiter 4i oben.
+<pre id="log">FASSUNG v17 — 4i hat die Stelle gefunden: Farbe NACH dem Modus kommt an. Es wurde nur wieder bunt, weil alles auf EQ Disco lief. Neue Leiter 4j oben probiert Classic, Soft und Dynamic.
 Steht oben am Titel NICHT v15, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
 </pre>
 
@@ -2175,6 +2200,35 @@ async function gStufe(name, mitBit, neuesRegister, opt) {
    Beim Mikro-Rahmen ist er es nicht - das ist der Unterschied, den 4i abtastet.
    Alle vier Stufen sind identisch zu h1 (EQ 3 Disco, Bit an, neues Register)
    und drehen GENAU EINE Sache: wo die Farbe steht. */
+/* --- 4j: welches EQ-Profil macht NICHT bunt? -----------------------------
+   MILOID zu 4i (02.10., 15:55): "1+2 stock auf den eingestellten farben
+   wechselt dann irgendwann wieder auf bunt und 3.4 passiert nichts auch
+   unveraendert bunt."
+   Zwei harte Auskuenfte darin:
+     1. Der Farbbefehl NACH dem Modus kommt an - das Band steht kurz in
+        MILOIDs Farbe. Die Stelle ist also gefunden, i1 ist der Weg.
+        i3/i4 (Farbe im Modusrahmen) sind tot: Byte 5-7 sind dort keine
+        Farbkanaele, der Chip ignoriert den Rahmen stillschweigend.
+     2. Der Chip faehrt in EQ 3 ein EIGENES Farbprogramm und holt sich die
+        Farbe nach kurzer Zeit zurueck. Nicht unser Befehl verliert, sondern
+        das Profil ueberschreibt ihn laufend.
+   Daraus die naechste Leiter, und sie ist billig: 4i lief ausschliesslich auf
+   EQ 3 = DISCO - dem einzigen der vier Profile, dessen Name schon Farbwechsel
+   verspricht. Classic, Soft und Dynamic sind nie probiert worden. Faehrt eines
+   davon einfarbig, ist der Zielkonflikt Farbe-gegen-Sync ohne Nachschicken
+   geloest und der Abendweg steht.
+   Alle vier Stufen sind identisch zu i1 und drehen GENAU EINE Sache: das
+   EQ-Profil. j4 haelt Classic gegen die lange Pause, falls das Timing hier
+   anders wirkt als bei Disco. */
+$("#j1").onclick = () => gStufe("1 Classic + Farbe danach", true, true,
+                                { eq: 0, farbPos: "nach", feld: "#jUrteil", marke: "4j" });
+$("#j2").onclick = () => gStufe("2 Soft + Farbe danach", true, true,
+                                { eq: 1, farbPos: "nach", feld: "#jUrteil", marke: "4j" });
+$("#j3").onclick = () => gStufe("3 Dynamic + Farbe danach", true, true,
+                                { eq: 2, farbPos: "nach", feld: "#jUrteil", marke: "4j" });
+$("#j4").onclick = () => gStufe("4 Classic, Farbe 400 ms spaeter", true, true,
+                                { eq: 0, farbPos: "nachLang", feld: "#jUrteil", marke: "4j" });
+
 $("#i1").onclick = () => gStufe("1 Farbe NACH dem Modus", true, true,
                                 { eq: 3, farbPos: "nach", feld: "#iUrteil", marke: "4i" });
 $("#i2").onclick = () => gStufe("2 Farbe nach dem Modus, 400 ms spaeter", true, true,
