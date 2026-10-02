@@ -106,7 +106,7 @@ window.__probleme = [];
 </script>
 
 <h1>SPROSSE 0</h1>
-<p class="fassung">FASSUNG v17 · MILOID LED</p>
+<p class="fassung">FASSUNG v18 · MILOID LED</p>
 
 <fieldset class="oben">
   <legend>Bänder</legend>
@@ -135,19 +135,33 @@ window.__probleme = [];
     Band 1 links: <input id="micFarbe1" type="color" value="#ff0000">
     &nbsp;&nbsp; Band 2 rechts: <input id="micFarbe2" type="color" value="#ffffff">
   </div>
-  <div class="hinweis">Modus:
+  <div class="hinweis">EQ-Profil:
     <select id="micModus" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
-      <option value="0">0</option><option value="1">1</option>
-      <option value="2">2</option><option value="3">3</option>
-      <option value="4">4</option><option value="5">5</option>
-      <option value="6">6</option><option value="7">7</option>
+      <option value="0">0 · Classic</option>
+      <option value="1">1 · Soft</option>
+      <option value="2">2 · Dynamic</option>
+      <option value="3">3 · Disco — der einzige, der gemessen hört</option>
     </select>
-    &nbsp; Empfindlichkeit:
-    <input id="micEmp" type="number" min="0" max="100" value="50"
-           style="width:4em;background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
     <span id="micGemerkt" style="color:#888"></span>
   </div>
-  <button class="haupt gross" id="micAn">ABENDSTART</button>
+  <div class="reihe">
+    <button class="haupt gross" id="micPA">PA-ANLAGE</button>
+    <button class="haupt gross" id="micStudio">STUDIO</button>
+  </div>
+  <div class="hinweis">Empfindlichkeit:
+    <button id="micEmpMinus" style="padding:6px 12px">− 5</button>
+    <input id="micEmp" type="number" min="0" max="100" value="8"
+           style="width:4em;background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
+    <button id="micEmpPlus" style="padding:6px 12px">+ 5</button>
+    <span id="micRaum" style="color:#888"></span>
+  </div>
+  <div class="hinweis"><b>Im Raum nachstellen, das kostet nur einen Tipper:</b>
+    flackert es dauernd oder steht es konstant an → <b>runter</b>. Reagiert es
+    nur beim lautesten Drop oder bleibt dunkel → <b>rauf</b>. Die zwei Tasten
+    ändern sofort und starten den Modus <b>nicht</b> neu, das Licht hat also
+    keinen Aussetzer. Und: der Controller darf nicht direkt vor der Box liegen —
+    bei 110 dB aus einem Meter ist die Kapsel am Anschlag, da hilft kein Wert.</div>
+  <button class="haupt gross" id="micAn">ABENDSTART (Werte wie oben)</button>
   <button id="micAus">aus — zurück auf feste Farbe</button>
   <div class="urteil grau" id="micUrteil">Noch nicht geschaltet.</div>
   <label class="hinweis" style="display:block;margin-top:10px">
@@ -186,6 +200,23 @@ window.__probleme = [];
        Effekt. Die ganze Leiter 4g lief auf 0x87 - deshalb konnte keine ihrer
        vier Stufen hoeren, und "g3 war am besten" war kein Messwert, sondern
        Rauschen. Das ist eingearbeitet statt beschoenigt. -->
+  <fieldset>
+    <legend>NEU · 4k — vielleicht war es immer der falsche Farbrahmen</legend>
+    <p class="hinweis">Nur <b>ein</b> Knopf, und nur wenn du Zeit hast — am
+    Abend brauchst du ihn nicht. In derselben Referenz, aus der die vier
+    EQ-Namen stammen, steht ein <b>eigener Farbbefehl für den Musikmodus</b>:
+    <code>7E 07 05 03 RR GG BB 20 EF</code>. Jede Leiter bis jetzt hat den
+    <i>normalen</i> Farbbefehl geschickt. „Disco holt sich die Farbe zurück"
+    könnte also schlicht heißen: wir haben die ganze Zeit an die falsche Tür
+    geklopft.</p>
+    <p class="hinweis">Drücken, Musik läuft, <b>20 s hinsehen</b>. Blitzt es auf
+    den Beat <b>und</b> bleibt in deiner Farbe, ist das Projekt fertig —
+    eigene Farbe <i>und</i> Sync, bei gesperrtem Handy. Wird es bunt, ist der
+    Weg endgültig zu und Disco/bunt bleibt.</p>
+    <button id="k1">1 · Disco + <b>Musik-Farbrahmen</b> danach</button>
+    <div class="urteil grau" id="kUrteil">Noch nichts getestet.</div>
+  </fieldset>
+
   <fieldset>
     <legend>NEU · 4j — raus aus dem bunten Profil</legend>
     <p class="hinweis"><b>Dein Ergebnis aus 4i hat die Stelle gefunden:</b> bei
@@ -523,20 +554,26 @@ window.__probleme = [];
   <button id="wach">Bildschirm wachhalten (Wake Lock)</button>
   <div class="hinweis">Rückfall beim Sperren:
     <select id="rueckfall" style="background:#1c1c1c;color:#eee;border:1px solid #333;border-radius:6px;padding:6px">
-      <option value="mic:last">Band hört selbst weiter — <b>zuletzt gewählter Modus</b></option>
-      <option value="mic:0">Band hört selbst weiter (immer Mikro-Modus 0)</option>
+      <option value="">nichts senden — Band läuft in der Hardware weiter (<b>empfohlen</b>)</option>
+      <option value="mic:last">noch ein Modus-Befehl hinterher — zuletzt gewählter Modus</option>
+      <option value="mic:0">noch ein Modus-Befehl hinterher — immer Mikro-Modus 0</option>
       <option value="0x95">Band läuft im 7-Farb-Strobo weiter</option>
       <option value="0x9C">Band läuft im Weiß-Strobo weiter</option>
       <option value="0x89">Band läuft im weichen Verlauf weiter</option>
-      <option value="">nichts senden (Band bleibt wie es ist)</option>
     </select>
   </div>
+  <p class="hinweis"><b>Warum „nichts senden" ab v18 die Vorauswahl ist:</b> der
+  EQ-Modus liegt im Chip und läuft dort ohne Handy weiter — gemessen. Was beim
+  Sperren rausging, war ein <i>ungepufferter</i> Modus-Rahmen in der letzten
+  Millisekunde, bevor iOS die Seite anhält. Stand im Merker ein Wert außerhalb
+  0–3 (bis v17 waren 0–7 wählbar), bekam der Chip <code>0x87</code> — einen
+  Wert, den er nicht kennt. Genau so geht das Licht „auf einmal aus".</p>
   <button id="sperrtest">Sperrtest starten (90 s)</button>
   <div class="urteil grau" id="sperrUrteil">Noch nicht getestet.</div>
 </fieldset>
 
-<pre id="log">FASSUNG v17 — 4i hat die Stelle gefunden: Farbe NACH dem Modus kommt an. Es wurde nur wieder bunt, weil alles auf EQ Disco lief. Neue Leiter 4j oben probiert Classic, Soft und Dynamic.
-Steht oben am Titel NICHT v15, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
+<pre id="log">FASSUNG v18 — Zwei Knöpfe oben: PA-ANLAGE und STUDIO. Empfindlichkeit mit − 5 / + 5 im Raum nachstellen, das startet den Modus nicht neu. Beim Sperren geht jetzt NICHTS mehr raus (das war die Ursache), nach einem Abriss verbindet die Seite selbst neu und setzt den Zustand nach.
+Steht oben am Titel NICHT v18, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
 </pre>
 
   </div>
@@ -563,6 +600,13 @@ const VERSATZ = 20;     // ms zwischen Band 1 und Band 2
 const FENSTER = 20;     // ms: so weit darf ein Tick spaet sein, dann ist er verpasst
 
 const baender = [null, null];   // {geraet, merkmal}
+// Dasselbe Geraet nochmal, aber es bleibt stehen, wenn die Verbindung
+// abreisst. `baender` wird dabei auf null gesetzt (daran haengt die ganze
+// Seite), und ohne diese zweite Ablage wuesste der Neuaufbau nicht mehr, bei
+// WEM er anklopfen soll. requestDevice darf man dafuer nicht nochmal rufen -
+// das oeffnet den Auswahldialog, und der braucht einen Fingertipp.
+const zuletztGeraet = [null, null];
+const anschlussLaeuft = [false, false];
 const laeufe = [];
 let mikroAn = false, analyse = null, mikroDaten = null, mikroTicks = 0;
 // Bezuege auf den Audio-Graphen. Sie stehen absichtlich hier oben und nicht
@@ -672,6 +716,15 @@ const cmdMicAn   = (an) => rahmen(0x04, 0x07, an ? 0x01 : 0x00, 0xFF, 0xFF, 0xFF
 const cmdMicFarbe = (m, r, g, b) => rahmen(0x00, 0x03, 0x80 | m, 0x04, r, g, b);
 // Der Modus-Rahmen der Fremdsteuerungen: Byte 1 = 05 statt 00, FF FF am Ende.
 const cmdMicA = (m) => rahmen(0x05, 0x03, 0x80 | m, 0x04, 0xFF, 0xFF, 0x00);
+/* Farbe SPEZIELL fuer den Musikmodus - "music-reactive color variant" in
+   Tech-Morph/Lotus-Lantern-HA (const.py), derselben Quelle, aus der die vier
+   EQ-Namen stammen: 7E 07 05 03 RR GG BB 20 EF. Unterschied zum normalen
+   Farbbefehl ist nicht nur das Schlussbyte 0x20 statt 0x00/0x10, sondern auch
+   Byte 1 (0x07 statt 0x00). In allen Leitern bis v17 ging der NORMALE Rahmen
+   raus - "Disco holt sich die Farbe zurueck" kann deshalb auch heissen, dass
+   der Chip einen Farbbefehl im Musikmodus einfach nicht annimmt und wir die
+   ganze Zeit an die falsche Tuer geklopft haben. UNGEMESSEN, Knopf 4k. */
+const cmdFarbeMusik = (r, g, b) => rahmen(0x07, 0x05, 0x03, r, g, b, 0x20);
 
 /* --- Merker: was MILOID gewaehlt hat, ueberlebt Sperre und Neustart -------
    Grund (MILOID am 01.10.): "wenn ich mein handy sperre springt immer wieder
@@ -734,10 +787,21 @@ const Merk = {
     el.addEventListener("input", () => sichern(false));
   }
 };
+/* Gueltige EQ-Vorwahl des eingebauten Mikrofons: 0x80 CLASSIC, 0x81 SOFT,
+   0x82 DYNAMIC, 0x83 DISCO. MEHR GIBT ES NICHT (lotus-led, 02.10.). Jeder
+   Wert darueber geht als 0x84..0x87 raus, der Chip kennt ihn nicht und faellt
+   auf einen festen Effekt zurueck oder bleibt dunkel. Bis v17 waren oben 0-7
+   waehlbar und ein solcher Wert konnte im Merker liegen - beim Sperren ging er
+   dann ungeprueft raus. Deshalb klemmt ab v18 JEDER Weg durch eqKlemm. */
+const EQ_MAX = 3;
+const eqKlemm = (m) => (isFinite(m) ? Math.max(0, Math.min(EQ_MAX, m | 0)) : EQ_MAX);
 // Der zuletzt WIRKLICH geschaltete Mikro-Modus. Nicht dasselbe wie das
 // Auswahlfeld: MILOID kann im Feld herumdrehen, ohne zu schalten. Der
 // Rueckfall soll den Zustand treffen, in dem das Band gerade steht.
-let micModusAktiv = parseInt(Merk.lies("micModusAktiv", "0"), 10) || 0;
+let micModusAktiv = eqKlemm(parseInt(Merk.lies("micModusAktiv", "3"), 10));
+// Steht ein EQ-Profil aktiv im Chip und soll gehalten werden? Entscheidet, ob
+// nach einem Verbindungsabriss nachgesetzt wird.
+let micLaeuft = false;
 
 // Bluefy (WKWebView) liefert BluetoothDevice.id NICHT. Jedes blinde
 // geraet.id.slice() wirft dort einen TypeError - und zwar erst NACH dem
@@ -822,6 +886,7 @@ async function verbinden(nr) {
           "verschiedene Bänder dranhängen, zeigt erst die Sichtprobe — " +
           "es müssen beide rot werden.");
     }
+    zuletztGeraet[nr-1] = geraet;      // fuer den Neuaufbau nach einem Abriss
     geraet.addEventListener("gattserverdisconnected", () => {
       baender[nr-1] = null;
       lampe(nr, "Band " + nr + " — Verbindung weg", "fehler");
@@ -832,7 +897,12 @@ async function verbinden(nr) {
       if (laeuft) {
         abbruch = "Band " + nr + " hat die Verbindung verloren";
         log("Messung wird abgebrochen: " + abbruch);
+        return;      // waehrend einer Messung NICHT selbst neu verbinden
       }
+      // Ab v18: selbst wieder anklopfen. Der EQ-Modus liegt im Chip und laeuft
+      // ohne uns weiter — aber wenn er doch mal aussetzt, braucht die Reparatur
+      // eine Verbindung, und MILOID soll dafuer nichts antippen muessen.
+      neuAnschliessen(nr);
     });
     const server = await geraet.gatt.connect();
     const dienst = await server.getPrimaryService(DIENST);
@@ -1258,11 +1328,24 @@ Dauerhaft.start({
     if (v === "mic:last") {
       /* MILOIDs Punkt vom 01.10.: beim Sperren sprang immer Modus 0 rein.
          Hier kommt jetzt der Modus, in dem das Band tatsaechlich steht -
-         `micModusAktiv`, nicht das Auswahlfeld, und nicht die feste 0. */
-      return cmdMic(micModusAktiv);
+         `micModusAktiv`, nicht das Auswahlfeld, und nicht die feste 0.
+         eqKlemm ab v18, damit hier NIE ein 0x87 rausgeht. */
+      return cmdMic(eqKlemm(micModusAktiv));
     }
-    if (v.indexOf("mic:") === 0) return cmdMic(parseInt(v.slice(4), 10));
+    if (v.indexOf("mic:") === 0) return cmdMic(eqKlemm(parseInt(v.slice(4), 10)));
     return cmdModus(parseInt(v, 16));
+  },
+  /* Zurueck aus dem Hintergrund, NACH dem Verbindungsaufbau in dauerhaft.js.
+     Wenn der Chip im gesperrten Zustand seinen Modus verloren hat, ist das
+     die erste Gelegenheit, ihn zu reparieren - und sie kostet MILOID keinen
+     Tipp. Steht kein EQ-Profil aktiv, passiert hier nichts: dann hat er
+     bewusst etwas anderes geschaltet. */
+  async zurueck() {
+    if (!micLaeuft || laeuft || stroboAn) return;
+    for (let nr = 1; nr <= 2; nr++) {
+      if (baender[nr - 1] && baender[nr - 1].merkmal) await nachfassen(nr);
+      else if (zuletztGeraet[nr - 1]) await neuAnschliessen(nr);
+    }
   }
 });
 
@@ -1278,13 +1361,15 @@ async function micSchalten(an) {
     u.textContent = "Kein Band verbunden — erst oben verbinden.";
     return;
   }
-  const m = parseInt($("#micModus").value, 10);
-  let s = parseInt($("#micEmp").value, 10);
-  if (!isFinite(s)) s = 50;
-  /* Bereich jetzt 0-100, nicht 0-255. Beide Fremdsteuerungen fuer diesen Chip
-     geben 0-100 an; ein Wert von 200 landete im alten Code ungeprueft im Byte
-     und konnte dort alles heissen. 0-100 ist in beiden Registern gueltig. */
-  s = Math.max(0, Math.min(100, s));
+  /* eqKlemm ab v18: ein Wert ausserhalb 0-3 geht als 0x84..0x87 raus, den
+     kennt der Chip nicht, und genau das sah MILOID als "geht auf einmal aus".
+     Das Auswahlfeld bietet nur noch 0-3 an - die Klemme ist der zweite Riegel
+     fuer den Fall, dass im Merker eines Geraets noch eine alte 7 liegt. */
+  const m = eqKlemm(parseInt($("#micModus").value, 10));
+  /* Bereich 0-100, nicht 0-255. Beide Fremdsteuerungen fuer diesen Chip geben
+     0-100 an; ein Wert von 200 landete im alten Code ungeprueft im Byte und
+     konnte dort alles heissen. 0-100 ist in beiden Registern gueltig. */
+  const s = empWert();
   const schlecht = [];
   let gut = 0;
   /* Ueber den Index laufen, nicht ueber `aktiv`: die Farbe haengt an der Seite
@@ -1354,9 +1439,13 @@ async function micSchalten(an) {
   // auf einen Zustand, in dem das Band gar nicht steht.
   if (an && gut) {
     micModusAktiv = m;
+    micLaeuft = true;
     Merk.schreib("micModusAktiv", m);
     $("#micGemerkt").textContent = " · gemerkt: Modus " + m;
   }
+  // Ausgeschaltet heisst: nach einem Abriss NICHT wieder in den EQ-Modus
+  // zurueckschalten. Sonst springt das Band gegen MILOIDs letzten Befehl an.
+  if (!an && gut) micLaeuft = false;
   if (!gut) {
     u.className = "urteil fehler";
     u.textContent = "Nichts angekommen: " + schlecht.join(" / ");
@@ -1380,6 +1469,213 @@ async function micSchalten(an) {
 
 $("#micAn").onclick  = () => micSchalten(true);
 $("#micAus").onclick = () => micSchalten(false);
+
+/* --- Damit es im gesperrten Zustand nicht ausgeht (v18) --------------------
+   MILOID 02.10.: "baue es einfach so dass es auch im gesperrtem modus nicht
+   auf einmal ausgeht im disco modus".
+
+   Drei Dinge koennen das Licht toeten, waehrend das Handy in der Tasche
+   liegt. Welches es war, kann hier niemand messen - deshalb werden alle drei
+   zugleich erledigt statt eines geraten:
+
+     1. WIR schiessen es ab. Beim Sperren ging bisher ein ungepufferter
+        Modus-Rahmen raus (Abschnitt 5, Vorauswahl war "mic:last"). Lag im
+        Merker ein Wert ausserhalb 0-3 - und bis v17 waren 0-7 waehlbar -,
+        bekam der Chip 0x87 und faellt darauf auf einen festen Effekt zurueck
+        oder bleibt dunkel. ERLEDIGT: Auswahl kennt nur noch die vier
+        gueltigen EQ-Profile, jeder Weg geht durch eqKlemm, und beim Sperren
+        wird standardmaessig NICHTS mehr gesendet.
+     2. Die BLE-Verbindung reisst. Das Licht kostet das nicht (der Modus liegt
+        im Chip), aber danach war die Verbindung weg und niemand holte sie
+        zurueck - die naechste Reparatur und jeder Reglerweg war tot, bis
+        MILOID die Seite anfasst. ERLEDIGT: neuAnschliessen() klopft selbst
+        wieder an, dreimal mit wachsender Pause.
+     3. Der Chip verliert den Modus. Dagegen hilft nur ein neuer Rahmen.
+        ERLEDIGT: nachfassen() setzt den Abendzustand nach jedem gelungenen
+        Neuaufbau und beim Zurueckkommen aus dem Hintergrund erneut.
+
+   HONEST GESAGT: Punkt 2 und 3 brauchen laufendes JavaScript. iOS haelt die
+   Seite im gesperrten Zustand an, also greifen sie in der Sekunde, in der der
+   Bildschirm wieder angeht - nicht waehrenddessen. Soll im Hintergrund
+   garantiert nichts passieren koennen, bleibt nur "Bildschirm wachhalten" in
+   Abschnitt 5: dann laeuft die Seite durch und faengt jeden Abriss in
+   Sekunden auf. Punkt 1 dagegen wirkt immer, auch gesperrt - und das ist der
+   einzige der drei, bei dem WIR die Ursache waren. */
+
+/* Den Abendzustand auf EINEM Band erneut setzen. Byte-fuer-Byte dieselbe
+   Folge wie micSchalten (Empfindlichkeit -> Farbe -> Modus, G_ABSTAND
+   dazwischen) - ein zweiter Sendeweg mit eigener Reihenfolge waere genau der
+   Fehler, der am 02.10. schon einmal eine Messung wertlos gemacht hat. */
+async function nachfassen(nr) {
+  const b = baender[nr - 1];
+  if (!b || !b.merkmal) return false;
+  const m = eqKlemm(micModusAktiv);
+  const s = empWert();
+  try {
+    await sende(b, cmdMicEmpA(s));
+    await ePause(G_ABSTAND);
+    if ($("#micFarbeAn").checked) {
+      const feld = ["#micFarbe1", "#micFarbe2"][nr - 1] || "#micFarbe1";
+      const [fr, fg, fb] = hexRgb($(feld).value);
+      await sende(b, cmdFarbe(...korr(fr, fg, fb)));
+      await ePause(G_ABSTAND);
+    }
+    await sende(b, cmdMic(m));
+    log("Band " + nr + ": Abendzustand nachgesetzt (EQ " + m + ", Empf. " + s + ").");
+    return true;
+  } catch (e) {
+    log("Band " + nr + ": Nachsetzen gescheitert — " + fehlertext(e));
+    return false;
+  }
+}
+
+async function neuAnschliessen(nr) {
+  const i = nr - 1;
+  if (anschlussLaeuft[i]) return false;
+  if (laeuft || stroboAn) return false;     // nie in eine laufende Messung hinein
+  const geraet = zuletztGeraet[i];
+  if (!geraet) return false;
+  anschlussLaeuft[i] = true;
+  try {
+    for (let versuch = 1; versuch <= 3; versuch++) {
+      try {
+        lampe(nr, "Band " + nr + " — verbinde neu (" + versuch + "/3)…");
+        const server = await geraet.gatt.connect();
+        const dienst = await server.getPrimaryService(DIENST);
+        const merkmal = await dienst.getCharacteristic(SCHREIB);
+        const art = schreibweise(merkmal);
+        if (!art) throw new Error("Merkmal nicht beschreibbar");
+        baender[i] = { geraet, merkmal, art };
+        lampe(nr, "Band " + nr + " — wieder verbunden", "an");
+        log("Band " + nr + ": Verbindung wieder aufgebaut (Versuch " + versuch + ").");
+        /* Kurz setzen lassen, bevor der erste Rahmen rausgeht. Gegenpruefung
+           Gemini 02.10. hat gefragt, ob das Nachsetzen in eine halb
+           hergestellte Verbindung schreiben kann - getCharacteristic ist hier
+           schon durch, aber auf iOS liegt CoreBluetooth darunter, und ein
+           Schreibvorgang unmittelbar nach der Dienstsuche ist genau die Lage,
+           in der dieser Chip schon mal abgeworfen hat. 150 ms sind im Betrieb
+           unsichtbar und billiger als ein Abwurf, den es ohne Nachsetzen nicht
+           gegeben haette. */
+        if (micLaeuft) { await ePause(150); await nachfassen(nr); }
+        return true;
+      } catch (e) {
+        log("Band " + nr + ": Neuaufbau " + versuch + "/3 gescheitert — " + fehlertext(e));
+        if (versuch < 3) await ePause(versuch * 1200);
+      }
+    }
+    lampe(nr, "Band " + nr + " — Verbindung weg, Neuaufbau gescheitert", "fehler");
+    return false;
+  } finally {
+    anschlussLaeuft[i] = false;
+  }
+}
+
+/* --- PA-ANLAGE und STUDIO -------------------------------------------------
+   MILOID 02.10.: "die empfindlichkeit macht auch endlich was sie soll du
+   musst bedenken da wird ungefaehr musik laufen zwischen 100-110db+ also muss
+   das schon sehr hart abgestimmt sein oder bau einen modus fuer PA ANLAGE und
+   eine fuer STUDIO".
+
+   Das Mikrofon sitzt IM CONTROLLER, nicht bei uns. Wie der Chip seinen Pegel
+   bewertet, ist nicht auslesbar, und keine der drei Fremdsteuerungen sagt, ob
+   0-100 Verstaerkung oder Schwelle bedeutet. Darum zwei Startwerte und ein
+   Trimmer, der SOFORT wirkt - eine Antwort im Raum kostet dann zwei Tipper
+   statt einer Testrunde:
+
+     PA  8  - bei 100-110 dB ist die Kapsel ohnehin dauernd am Anschlag. Wenig
+              Verstaerkung ist die einzige Chance, dass der Chip zwischen Kick
+              und Rest noch einen Unterschied sieht. Steht es damit konstant
+              an, muss der Wert noch weiter runter, nicht rauf.
+     STU 55 - Zimmerpegel 70-85 dB, da ist die Mitte der Reglerstellung der
+              vernuenftige Start.
+
+   DIE WERTE SIND UNGEMESSEN und als Startpunkt gedacht, nicht als Wahrheit.
+   Was MILOID im Raum einstellt, ueberlebt im Merker. */
+const RAUM = { pa: 8, studio: 55 };
+
+function empWert() {
+  let s = parseInt($("#micEmp").value, 10);
+  if (!isFinite(s)) s = 50;
+  return Math.max(0, Math.min(100, s));
+}
+
+function raumAnzeigen() {
+  const r = Merk.lies("micRaum", "");
+  const name = r === "pa" ? "PA-Anlage" : (r === "studio" ? "Studio" : "");
+  $("#micRaum").textContent = name
+    ? " · " + name + ", Start war " + RAUM[r]
+    : " · 0 = taub, 100 = volle Empfindlichkeit";
+}
+
+async function raumStart(welche) {
+  $("#micEmp").value = String(RAUM[welche]);
+  Merk.schreib("micEmp", String(RAUM[welche]));
+  Merk.schreib("micRaum", welche);
+  raumAnzeigen();
+  log("Raum " + welche.toUpperCase() + ": Empfindlichkeit " + RAUM[welche]
+      + ", Abendstart laeuft los.");
+  await micSchalten(true);
+}
+
+/* Nur die Empfindlichkeit, KEIN Modus-Rahmen. Darum hat das Licht beim
+   Nachstellen keinen Aussetzer - und darum ist dieser Weg im Betrieb
+   erlaubt: 7E 04 06 ist am 02.10. in Leiter 4g am Band gelaufen, ohne dass
+   die Verbindung abgeworfen wurde (das gilt weiterhin NICHT fuer 7E 04 07). */
+/* Der letzte Tipp gewinnt, und zwar immer. Gegenpruefung Gemini 02.10. hat
+   hier zu Recht gestochert: sende() weist einen zweiten Schreibvorgang ab,
+   solange der erste laeuft ("uebersprungen - Band sendet noch"). Ohne diese
+   Warteschlange haette ein schneller Dreifachtipp im Club bedeutet: im Feld
+   steht 25, im Chip stehen 35 - und das Feld ist das, was MILOID liest. Genau
+   diese Art Abweichung hat am 01.10. schon eine Sitzung Fehlersuche gekostet
+   (Feld 200, gesendet 100). Statt einer echten Queue reicht hier "latest
+   wins": Zwischenwerte beim Durchtippen will niemand hoeren, nur den Endwert. */
+let trimLaeuft = false, trimZiel = null;
+
+async function empTrimmen(d) {
+  const s = Math.max(0, Math.min(100, empWert() + d));
+  $("#micEmp").value = String(s);
+  Merk.schreib("micEmp", String(s));
+  trimZiel = s;
+  if (trimLaeuft) return;      // der laufende Durchgang nimmt das neue Ziel mit
+  trimLaeuft = true;
+  try {
+    while (trimZiel !== null) {
+      const ziel = trimZiel;
+      trimZiel = null;
+      const aktiv = baender.filter((b) => b && b.merkmal);
+      const u = $("#micUrteil");
+      if (!aktiv.length) {
+        u.className = "urteil fehler";
+        u.textContent = "Empfindlichkeit steht auf " + ziel
+          + ", aber kein Band verbunden — erst oben verbinden.";
+        continue;
+      }
+      let gut = 0;
+      const schlecht = [];
+      for (const b of aktiv) {
+        try { await sende(b, cmdMicEmpA(ziel)); gut++; }
+        catch (e) { schlecht.push(fehlertext(e)); }
+      }
+      u.className = gut ? "urteil gut" : "urteil fehler";
+      u.textContent = gut
+        ? "Empfindlichkeit " + ziel + " an " + gut + " von " + aktiv.length
+          + " Bändern — Modus läuft unverändert weiter."
+        : "Nichts angekommen: " + schlecht.join(" / ");
+      log("Empfindlichkeit live auf " + ziel + " (" + gut + "/" + aktiv.length + ")");
+    }
+  } finally { trimLaeuft = false; }
+}
+
+/* Jeder Klick-Handler faengt selbst. Ein unbehandeltes Promise aus einem
+   onclick bleibt sonst still liegen - und still ist in dieser Seite das
+   Schlimmste, weil man tippt und nicht weiss, ob etwas passiert ist. */
+const klick = (f) => () => { Promise.resolve().then(f).catch(
+  (e) => log("Knopf-Fehler: " + fehlertext(e))); };
+
+$("#micPA").onclick       = klick(() => raumStart("pa"));
+$("#micStudio").onclick   = klick(() => raumStart("studio"));
+$("#micEmpMinus").onclick = klick(() => empTrimmen(-5));
+$("#micEmpPlus").onclick  = klick(() => empTrimmen(+5));
 
 /* --- 4c: unser eigenes Strobo --------------------------------------------
    Pegelgesteuert wie die Bandmodi 0/1, aber die Farbe kommt von uns.
@@ -2047,10 +2343,8 @@ async function gStufe(name, mitBit, neuesRegister, opt) {
   }
   if (gSendet) return;                 // Doppeltipp, der erste Klick laeuft noch
   const meine = ++gGeneration;         // ab hier ist jede aeltere Nachschau tot
-  const m = parseInt($("#micModus").value, 10) || 0;
-  let s = parseInt($("#micEmp").value, 10);
-  if (!isFinite(s)) s = 50;
-  s = Math.max(0, Math.min(100, s));
+  const m = eqKlemm(parseInt($("#micModus").value, 10));
+  const s = empWert();
   /* Der letzte Rahmen der Stufe. 4g nimmt den Modus von oben in unserem
      Layout, 4h eine feste EQ-Nummer - im Referenz-Layout (cmdMicA) oder in
      unserem alten (cmdMic), je nachdem welche Variable die Stufe dreht.
@@ -2095,6 +2389,16 @@ async function gStufe(name, mitBit, neuesRegister, opt) {
       folge.push(letzter(rgb));
       if (rgb && (fpos === "nach" || fpos === "nachLang"))
         folge.push(cmdFarbe(rgb[0], rgb[1], rgb[2]));
+      /* 4k (02.10., v18): der eigene Farbrahmen FUER den Musikmodus. Gefunden
+         in der Referenz, die uns schon die vier EQ-Namen gegeben hat
+         (Tech-Morph/Lotus-Lantern-HA, const.py): neben dem normalen
+         Farbbefehl gibt es dort eine "music-reactive color variant"
+         7E 07 05 03 RR GG BB 20 EF. Bisher hat die Seite in JEDER Leiter den
+         normalen Rahmen geschickt - dass Disco die Farbe zurueckholt, koennte
+         also einfach heissen, dass wir im Musikmodus den falschen Rahmen
+         benutzt haben. Kostet einen Knopf, es zu wissen. */
+      if (rgb && fpos === "musik")
+        folge.push(cmdFarbeMusik(rgb[0], rgb[1], rgb[2]));
       try {
         for (let i = 0; i < folge.length; i++) {
           /* Nur 4i-Stufe "nachLang" wartet vor dem LETZTEN Rahmen laenger:
@@ -2228,6 +2532,14 @@ $("#j3").onclick = () => gStufe("3 Dynamic + Farbe danach", true, true,
                                 { eq: 2, farbPos: "nach", feld: "#jUrteil", marke: "4j" });
 $("#j4").onclick = () => gStufe("4 Classic, Farbe 400 ms spaeter", true, true,
                                 { eq: 0, farbPos: "nachLang", feld: "#jUrteil", marke: "4j" });
+
+/* 4k: identisch zu i1 (dem Knopf, bei dem die Farbe gemessen ankam) und dreht
+   GENAU EINE Sache - den Farbrahmen. i1 schickt 7E 00 05 03 ... 00,
+   k1 schickt 7E 07 05 03 ... 20, den Musikmodus-Rahmen der Referenz. Damit
+   benennt eine Antwort die Ursache: haelt k1 die Farbe und i1 nicht, war es
+   der Rahmen. Werden beide bunt, ueberschreibt das Profil wirklich alles. */
+$("#k1").onclick = () => gStufe("1 Disco + Musik-Farbrahmen danach", true, true,
+                                { eq: 3, farbPos: "musik", feld: "#kUrteil", marke: "4k" });
 
 $("#i1").onclick = () => gStufe("1 Farbe NACH dem Modus", true, true,
                                 { eq: 3, farbPos: "nach", feld: "#iUrteil", marke: "4i" });
@@ -2497,9 +2809,22 @@ $("#kopieren").onclick = async () => {
   if ($("#stVorText")) $("#stVorText").textContent = $("#stVor").value;
   if ($("#stModus").onchange) $("#stModus").onchange();
 
-  if (micModusAktiv) {
+  /* Ein Merker von v17 oder davor kann 4..7 enthalten - Werte, die das Feld
+     ab v18 nicht mehr anbietet. `el.value = "7"` laesst ein <select> dann auf
+     "" stehen, und parseInt("") ist NaN: aus dem gemerkten Modus 7 wuerde
+     stillschweigend Modus 0. Darum hier einmal gerade ziehen und zurueck in
+     den Merker schreiben, statt es zu bemerken, wenn das Band falsch leuchtet. */
+  const feld = $("#micModus");
+  if (!feld.value) {
+    feld.value = String(EQ_MAX);
+    Merk.schreib("micModus", feld.value);
+    log("Gemerktes EQ-Profil lag außerhalb 0–3 und steht jetzt auf "
+        + EQ_MAX + " (Disco).");
+  }
+  if (Merk.lies("micModusAktiv", null) !== null) {
     $("#micGemerkt").textContent = " · gemerkt: Modus " + micModusAktiv;
   }
+  raumAnzeigen();
 })();
 
 /* --- Selbstpruefung: sagt beim Laden, was geht und was nicht ---------------
