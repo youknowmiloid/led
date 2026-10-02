@@ -106,7 +106,7 @@ window.__probleme = [];
 </script>
 
 <h1>SPROSSE 0</h1>
-<p class="fassung">FASSUNG v13 · MILOID LED</p>
+<p class="fassung">FASSUNG v14 · MILOID LED</p>
 
 <fieldset class="oben">
   <legend>Bänder</legend>
@@ -174,6 +174,51 @@ window.__probleme = [];
 <details class="heute" open>
   <summary><b>Test für heute</b> — hört das Band wirklich auf die Musik?</summary>
   <div class="inhalt">
+
+  <!-- 4h: der Fund vom 02.10., 15:00. Nach deinem "immer noch nur Strobo"
+       habe ich die gepflegte Fremdsteuerung fuer genau diesen Chip gelesen
+       (AlexMelanFromRingo/lotus-led-python, lotus_led/protocol.py). Dort steht:
+       der Rahmen mit Sub-Byte 04 ist NICHT "Mikro-Modus 0..7", sondern die
+       EQ-Vorwahl des eingebauten Mikrofons - und die hat GENAU VIER Werte:
+         0x80 CLASSIC, 0x81 SOFT, 0x82 DYNAMIC, 0x83 DISCO
+       Modus 7 ist 0x87 und liegt damit AUSSERHALB. Was MILOID sieht (Strobo in
+       seiner Farbe, taub) ist der Rueckfall der Firmware auf einen festen
+       Effekt. Die ganze Leiter 4g lief auf 0x87 - deshalb konnte keine ihrer
+       vier Stufen hoeren, und "g3 war am besten" war kein Messwert, sondern
+       Rauschen. Das ist eingearbeitet statt beschoenigt. -->
+  <fieldset>
+    <legend>NEU · 4h — der wahrscheinliche Grund: Modus 7 gibt es nicht</legend>
+    <p class="hinweis">Ich habe die fertige Steuerung für genau diesen Chip
+    gelesen. Der Befehl, den ich die ganze Zeit „Mikro-Modus 0 bis 7" genannt
+    habe, ist in Wahrheit die <b>Klang-Vorwahl des Bandmikrofons</b> — und die
+    hat nur <b>vier</b> Stufen: <i>Classic, Soft, Dynamic, Disco</i>.
+    <b>„Modus 7" existiert nicht.</b> Dein Band bekommt eine Zahl, die es nicht
+    kennt, und fällt auf ein festes Strobo zurück. Genau das, was du siehst.</p>
+    <p class="hinweis">Diese vier Knöpfe schicken erstmals eine Zahl, die der
+    Chip kennen kann. Sie unterscheiden sich von Knopf 1 um <b>je genau eine
+    Sache</b> — damit eine Runde sagt, was es war. Deine Farben von oben gehen
+    mit, die Empfindlichkeit auch. <b>Modus-Auswahl oben ist hier egal.</b></p>
+    <p class="hinweis"><b>Gleiche Prüfung wie immer:</b> drücken, 5 Sekunden
+    hinsehen, <b>Musik stumm schalten</b>. Blitzt es weiter → taub. Wird es
+    still und kommt mit der Musik zurück → es hört.</p>
+    <button id="h1">1 · <b>Disco</b> + Mikro an <span style="color:#777">(die Referenz)</span></button>
+    <button id="h2">2 · wie 1, aber <b>Classic</b> statt Disco</button>
+    <button id="h3">3 · wie 1, aber <b>ohne</b> Mikro-Bit</button>
+    <button id="h4">4 · wie 1, aber im <b>alten Rahmen</b></button>
+    <div class="urteil grau" id="hUrteil">Noch nichts getestet.</div>
+    <p class="hinweis">Vier kurze Antworten reichen, z.B. <i>„1 wird still, 2
+    wird still, 3 blitzt durch, 4 blitzt durch"</i>. Dann baue ich genau den
+    einen Weg in den Abendstart.<br>
+    <b>Blitzen alle vier durch:</b> Empfindlichkeit oben auf <b>10</b> und die
+    vier nochmal. Hilft auch das nicht, hat dein Controller kein eigenes
+    Mikrofon — dann ist <b>4f</b> der Weg für heute Abend (fester Takt,
+    einfarbig, gemessen sicher) und ich bau dir das sauber zu Ende.</p>
+  </fieldset>
+
+  <p class="hinweis" style="margin-top:18px"><b>4g unten ist erledigt</b> —
+  alle vier Stufen liefen auf der Zahl, die der Chip nicht kennt. Nur drücken,
+  wenn ich dich darum bitte.</p>
+
   <p class="hinweis">Vier Knöpfe, und sie unterscheiden sich um <b>genau zwei</b>
   Dinge: schicken wir dem Chip vorher das <b>Mikrofon-Bit</b>, und in welchem
   <b>Register</b> geht die Empfindlichkeit raus. Farbe und Modus sind in allen
@@ -446,8 +491,8 @@ window.__probleme = [];
   <div class="urteil grau" id="sperrUrteil">Noch nicht getestet.</div>
 </fieldset>
 
-<pre id="log">FASSUNG v13 — Abendstart ist jetzt genau Stufe 3 der Leiter 4g: neues Empfindlichkeits-Register (7E 04 06) und 25 ms Abstand zwischen den Befehlen. Am Band gemessen am 02.10.
-Steht oben am Titel NICHT v13, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
+<pre id="log">FASSUNG v14 — Fund: der Mikro-Rahmen ist eine EQ-Vorwahl mit nur VIER Werten (Classic/Soft/Dynamic/Disco). "Modus 7" kennt der Chip nicht. Neue Leiter 4h oben.
+Steht oben am Titel NICHT v14, hat das Handy noch die alte Seite: App ganz schließen und neu öffnen.
 </pre>
 
   </div>
@@ -1934,8 +1979,16 @@ const G_ABSTAND = 25;         // ms zwischen zwei Rahmen
    (Millisekunden) gegen einen versehentlichen Doppeltipp. */
 let gGeneration = 0, gSendet = false;
 
-async function gStufe(name, mitBit, neuesRegister) {
-  const u = $("#gUrteil");
+/* opt ist fuer die Leiter 4h dazugekommen und aendert an 4g nichts: ohne opt
+   laeuft alles wie vorher (Modusbyte aus dem Feld oben, Urteil in #gUrteil).
+   Mit opt wird genau der letzte Rahmen ausgetauscht - EQ-Nummer und Layout -
+   und das Urteil landet im eigenen Feld. Eine Leiter, ein Sendeweg, eine
+   Abwurf-Nachschau: zwei Kopien desselben Ablaufs waeren die naechste
+   Fehlerquelle. */
+async function gStufe(name, mitBit, neuesRegister, opt) {
+  const o = opt || {};
+  const marke = o.marke || "4g";
+  const u = $(o.feld || "#gUrteil");
   const aktiv = baender.filter((b) => b && b.merkmal);
   if (!aktiv.length) {
     u.className = "urteil fehler";
@@ -1948,6 +2001,11 @@ async function gStufe(name, mitBit, neuesRegister) {
   let s = parseInt($("#micEmp").value, 10);
   if (!isFinite(s)) s = 50;
   s = Math.max(0, Math.min(100, s));
+  /* Der letzte Rahmen der Stufe. 4g nimmt den Modus von oben in unserem
+     Layout, 4h eine feste EQ-Nummer - im Referenz-Layout (cmdMicA) oder in
+     unserem alten (cmdMic), je nachdem welche Variable die Stufe dreht. */
+  const letzter = () => (o.eq === undefined ? cmdMic(m)
+                         : (o.alt ? cmdMic(o.eq) : cmdMicA(o.eq)));
   const farbeAn = $("#micFarbeAn").checked;
   const farbFeld = ["#micFarbe1", "#micFarbe2"];
   const schlecht = [];
@@ -1970,7 +2028,7 @@ async function gStufe(name, mitBit, neuesRegister) {
         const [fr, fg, fb] = hexRgb($(farbFeld[n] || farbFeld[0]).value);
         folge.push(cmdFarbe(...korr(fr, fg, fb)));
       }
-      folge.push(cmdMic(m));
+      folge.push(letzter());
       try {
         for (let i = 0; i < folge.length; i++) {
           if (i) await ePause(G_ABSTAND);
@@ -1982,11 +2040,13 @@ async function gStufe(name, mitBit, neuesRegister) {
   } finally { gSendet = false; }
   u.className = gut ? "urteil gut" : "urteil fehler";
   u.textContent = name + " → raus an " + gut + " von " + aktiv.length
-    + " Bändern (Modus " + m + ", Empf. " + s + ")."
+    + " Bändern ("
+    + (o.eq === undefined ? "Modus " + m : "EQ " + o.eq)
+    + ", Empf. " + s + ")."
     + (schlecht.length ? " Fehler: " + schlecht.join(" / ") + "." : "")
     + " JETZT 5 s hinsehen, dann die MUSIK STUMM schalten: blitzt es weiter"
     + " (hört nicht) oder wird es still (hört)?";
-  log("4g " + name + ": " + gut + "/" + aktiv.length
+  log(marke + " " + name + ": " + gut + "/" + aktiv.length
       + (schlecht.length ? " — " + schlecht.join(" / ") : ""));
   /* Nachschau auf den Abwurf — MIT echtem Schreibvorgang.
      Erste Fassung las nur gatt.connected. Gegenpruefung Gemini 02.10.: auf iOS
@@ -2012,7 +2072,7 @@ async function gStufe(name, mitBit, neuesRegister) {
     }
     if (!b.merkmal || b.belegt) continue;      // nicht pruefbar, nicht raten
     try {
-      await sende(b, cmdMic(m));
+      await sende(b, letzter());
     } catch (e) {
       const t = fehlertext(e);
       if (t.indexOf("übersprungen") < 0) weg.push("Band " + (n + 1));
@@ -2025,13 +2085,44 @@ async function gStufe(name, mitBit, neuesRegister) {
       + " ist ABGEWORFEN (nach " + Math.round(G_NACHSCHAU / 1000)
       + " s nachgesehen, mit echtem Testbefehl). Dieser Weg ist tot, sag mir das."
       + " Band neu verbinden, dann den nächsten Knopf.";
-    log("4g " + name + ": ABWURF — " + weg.join(", "));
+    log(marke + " " + name + ": ABWURF — " + weg.join(", "));
   } else {
     u.textContent += "  ·  Verbindung steht nach "
       + Math.round(G_NACHSCHAU / 1000) + " s noch, Testbefehl kam durch (kein Abwurf).";
-    log("4g " + name + ": kein Abwurf, Testbefehl durch");
+    log(marke + " " + name + ": kein Abwurf, Testbefehl durch");
   }
 }
+
+/* --- 4h: die EQ-Vorwahl hat nur vier Werte --------------------------------
+   Quelle, gelesen am 02.10. nach MILOIDs "immer noch nur Strobo":
+   AlexMelanFromRingo/lotus-led-python, lotus_led/protocol.py
+
+     class MicEq: CLASSIC=0, SOFT=1, DYNAMIC=2, DISCO=3
+     mic_eq(eq)  ->  7E 05 03 <0x80+eq> 04 FF FF 00 EF
+     mic_enabled(on)      ->  7E 04 07 <on> FF FF FF 00 EF
+     mic_sensitivity(s)   ->  7E 04 06 <s 0-100> FF FF FF 00 EF
+
+   Damit ist der Sub-Byte-04-Rahmen die EQ-Vorwahl des eingebauten Mikrofons
+   und kein "Modus 0..7". 0x87 (unser "Modus 7") liegt ausserhalb der vier
+   gueltigen Werte - die Firmware faellt auf einen festen Effekt zurueck, und
+   genau das sieht MILOID seit drei Sitzungen. Die Leiter 4g lief komplett auf
+   0x87, also konnte keine Stufe hoeren; "g3 war am besten" war kein Messwert.
+
+   Vier Stufen, jede genau EINEN Schritt von Stufe 1 entfernt:
+     h1  Referenz: Bit an, EQ 3 (Disco), Referenz-Rahmen cmdMicA
+     h2  nur die EQ-Nummer anders (0 Classic)      -> ist es das Profil?
+     h3  nur das Mikro-Bit weg                     -> braucht es das Bit?
+     h4  nur das Rahmenlayout anders (cmdMic)      -> ist es Byte 1 / die Fuellbytes?
+   Empfindlichkeit, Farbe und Reihenfolge sind in allen vier gleich und damit
+   keine Variable. */
+$("#h1").onclick = () => gStufe("1 Disco + Bit (Referenz)", true,  true,
+                                { eq: 3, feld: "#hUrteil", marke: "4h" });
+$("#h2").onclick = () => gStufe("2 Classic statt Disco",    true,  true,
+                                { eq: 0, feld: "#hUrteil", marke: "4h" });
+$("#h3").onclick = () => gStufe("3 Disco ohne Bit",         false, true,
+                                { eq: 3, feld: "#hUrteil", marke: "4h" });
+$("#h4").onclick = () => gStufe("4 Disco, alter Rahmen",    true,  true,
+                                { eq: 3, alt: true, feld: "#hUrteil", marke: "4h" });
 
 $("#g1").onclick = () => gStufe("1 ohne Bit, altes Register",  false, false);
 $("#g2").onclick = () => gStufe("2 MIT Bit, altes Register",   true,  false);
